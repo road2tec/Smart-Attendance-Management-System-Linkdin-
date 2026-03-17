@@ -140,8 +140,10 @@ const RoleSpecificInfoStep = ({
     );
   }
 
-  // Show error state if departments are empty but not loading
-  if (!isDepartmentsLoading && (!departments || departments.length === 0)) {
+  const hasDepartments = Array.isArray(departments) && departments.length > 0;
+
+  // Show error state if departments are empty but not loading (teacher only)
+  if (!isDepartmentsLoading && !hasDepartments && role === 'teacher') {
     return (
       <motion.div
         initial={{ opacity: 0, x: 100 }}
@@ -152,7 +154,7 @@ const RoleSpecificInfoStep = ({
         <div className="flex flex-col items-center">
           <X className="text-red-500" size={24} />
           <p className={`mt-3 ${getThemedClass('text-white', 'text-blue-800')}`}>
-            Unable to load departments data. Please try again later.
+            No departments found. Please contact admin or create one.
           </p>
           <button
             type="button"
@@ -191,6 +193,11 @@ const RoleSpecificInfoStep = ({
       
       {role === 'student' ? (
         <div className="grid grid-cols-2 gap-3">
+          {!hasDepartments && (
+            <div className={`col-span-2 rounded-lg p-3 ${getThemedClass('bg-slate-800/40 text-slate-200', 'bg-blue-50 text-blue-800')}`}>
+              Departments are not configured yet. You can continue without selecting a group; an admin can assign it later.
+            </div>
+          )}
           <div className="col-span-1">
             <label className={`block ${getThemedClass('text-gray-300', 'text-blue-600')} mb-1 text-sm`}>Admission Year</label>
             <select
@@ -212,59 +219,74 @@ const RoleSpecificInfoStep = ({
             {renderError('admissionYear')}
           </div>
           
-          <div className="col-span-1">
-            <label className={`block ${getThemedClass('text-gray-300', 'text-blue-600')} mb-1 text-sm`}>Department</label>
-            <select
-              name="department"
-              value={formData.department || ''}
-              onChange={handleCustomChange}
-              className={`w-full p-2 ${getThemedClass('bg-slate-800/50 border-slate-700/30 text-white focus:ring-green-500/50', 'bg-white border-blue-200 text-blue-800 focus:ring-green-600/50')} border ${errors && errors.department ? getThemedClass('border-red-500', 'border-red-500') : 'focus:border-green-500/50'} rounded-lg focus:outline-none focus:ring-1`}
-            >
-              <option value="">Select Department</option>
-              {Array.isArray(departments) && departments.map(dept => (
-                <option key={dept._id} value={dept._id}>
-                  {dept.name} ({dept.code})
-                </option>
-              ))}
-            </select>
-            {renderError('department')}
-          </div>
+          {hasDepartments && (
+            <div className="col-span-1">
+              <label className={`block ${getThemedClass('text-gray-300', 'text-blue-600')} mb-1 text-sm`}>Department</label>
+              <select
+                name="department"
+                value={formData.department || ''}
+                onChange={handleCustomChange}
+                className={`w-full p-2 ${getThemedClass('bg-slate-800/50 border-slate-700/30 text-white focus:ring-green-500/50', 'bg-white border-blue-200 text-blue-800 focus:ring-green-600/50')} border ${errors && errors.department ? getThemedClass('border-red-500', 'border-red-500') : 'focus:border-green-500/50'} rounded-lg focus:outline-none focus:ring-1`}
+              >
+                <option value="">Select Department</option>
+                {Array.isArray(departments) && departments.map(dept => (
+                  <option key={dept._id} value={dept._id}>
+                    {dept.name} ({dept.code})
+                  </option>
+                ))}
+              </select>
+              {renderError('department')}
+            </div>
+          )}
           
-          <div className="col-span-1">
-            <label className={`block ${getThemedClass('text-gray-300', 'text-blue-600')} mb-1 text-sm`}>Group/Class</label>
-            <select
-              name="group"
-              value={formData.group || ''}
-              onChange={handleCustomChange}
-              disabled={!formData.department}
-              className={`w-full p-2 ${getThemedClass('bg-slate-800/50 border-slate-700/30 text-white focus:ring-green-500/50', 'bg-white border-blue-200 text-blue-800 focus:ring-green-600/50')} border ${errors && errors.group ? getThemedClass('border-red-500', 'border-red-500') : 'focus:border-green-500/50'} rounded-lg focus:outline-none focus:ring-1 ${!formData.department ? 'opacity-60 cursor-not-allowed' : ''}`}
-            >
-              <option value="">Select Group</option>
-              {availableGroups.map(group => (
-                <option key={group._id} value={group._id}>
-                  {group.name} (Max: {group.maxCapacity})
-                </option>
-              ))}
-            </select>
-            {renderError('group')}
-          </div>
+          {hasDepartments && (
+            <div className="col-span-1">
+              <label className={`block ${getThemedClass('text-gray-300', 'text-blue-600')} mb-1 text-sm`}>Group/Class</label>
+              <select
+                name="group"
+                value={formData.group || ''}
+                onChange={handleCustomChange}
+                disabled={!formData.department}
+                className={`w-full p-2 ${getThemedClass('bg-slate-800/50 border-slate-700/30 text-white focus:ring-green-500/50', 'bg-white border-blue-200 text-blue-800 focus:ring-green-600/50')} border ${errors && errors.group ? getThemedClass('border-red-500', 'border-red-500') : 'focus:border-green-500/50'} rounded-lg focus:outline-none focus:ring-1 ${!formData.department ? 'opacity-60 cursor-not-allowed' : ''}`}
+              >
+                <option value="">Select Group</option>
+                {availableGroups.map(group => (
+                  <option key={group._id} value={group._id}>
+                    {group.name} (Max: {group.maxCapacity})
+                  </option>
+                ))}
+              </select>
+              {renderError('group')}
+            </div>
+          )}
           
           <div className="col-span-1">
             <label className={`block ${getThemedClass('text-gray-300', 'text-blue-600')} mb-1 text-sm`}>Roll Number</label>
-            <select
-              name="rollNumber"
-              value={formData.rollNumber || ''}
-              onChange={handleCustomChange}
-              disabled={!formData.group || !formData.admissionYear || !formData.department}
-              className={`w-full p-2 ${getThemedClass('bg-slate-800/50 border-slate-700/30 text-white focus:ring-green-500/50', 'bg-white border-blue-200 text-blue-800 focus:ring-green-600/50')} border ${errors && errors.rollNumber ? getThemedClass('border-red-500', 'border-red-500') : 'focus:border-green-500/50'} rounded-lg focus:outline-none focus:ring-1 ${(!formData.group || !formData.admissionYear || !formData.department) ? 'opacity-60 cursor-not-allowed' : ''}`}
-            >
-              <option value="">Select Roll Number</option>
-              {availableRollNumbers.map(roll => (
-                <option key={roll} value={roll}>
-                  {roll}
-                </option>
-              ))}
-            </select>
+            {hasDepartments ? (
+              <select
+                name="rollNumber"
+                value={formData.rollNumber || ''}
+                onChange={handleCustomChange}
+                disabled={!formData.group || !formData.admissionYear || !formData.department}
+                className={`w-full p-2 ${getThemedClass('bg-slate-800/50 border-slate-700/30 text-white focus:ring-green-500/50', 'bg-white border-blue-200 text-blue-800 focus:ring-green-600/50')} border ${errors && errors.rollNumber ? getThemedClass('border-red-500', 'border-red-500') : 'focus:border-green-500/50'} rounded-lg focus:outline-none focus:ring-1 ${(!formData.group || !formData.admissionYear || !formData.department) ? 'opacity-60 cursor-not-allowed' : ''}`}
+              >
+                <option value="">Select Roll Number</option>
+                {availableRollNumbers.map(roll => (
+                  <option key={roll} value={roll}>
+                    {roll}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                name="rollNumber"
+                value={formData.rollNumber || ''}
+                onChange={handleChange}
+                placeholder="Enter roll number"
+                className={`w-full p-2 ${getThemedClass('bg-slate-800/50 border-slate-700/30 text-white focus:ring-green-500/50', 'bg-white border-blue-200 text-blue-800 focus:ring-green-600/50')} border ${errors && errors.rollNumber ? getThemedClass('border-red-500', 'border-red-500') : 'focus:border-green-500/50'} rounded-lg focus:outline-none focus:ring-1`}
+              />
+            )}
             {renderError('rollNumber')}
           </div>
         </div>
@@ -331,6 +353,16 @@ const RoleSpecificInfoStep = ({
           
           <div className="flex flex-col w-full gap-2">
             <ProfileCameraCapture onImageCapture={handleImageCapture} />
+            {errors?.profileImage && (
+              <p className={`text-xs mt-1 ${getThemedClass('text-red-400', 'text-red-500')}`}>
+                {errors.profileImage}
+              </p>
+            )}
+            {errors?.faceEmbedding && (
+              <p className={`text-xs mt-1 ${getThemedClass('text-red-400', 'text-red-500')}`}>
+                {errors.faceEmbedding}
+              </p>
+            )}
           </div>
         </div>
       </div>

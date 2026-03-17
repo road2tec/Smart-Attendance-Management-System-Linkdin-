@@ -62,12 +62,72 @@ const AttendanceDashboard = () => {
     lowAttendanceStudents
   } = overallAttendance;
 
+  const totalRecords = overallStats?.totalRecords || 0;
+  const presentRate = totalRecords > 0
+    ? Math.round((((overallStats?.statusCounts?.present) || 0) / totalRecords) * 100)
+    : 0;
+  const lateRate = totalRecords > 0
+    ? Math.round((((overallStats?.statusCounts?.late) || 0) / totalRecords) * 100)
+    : 0;
+  const absentRate = totalRecords > 0
+    ? Math.round((((overallStats?.statusCounts?.absent) || 0) / totalRecords) * 100)
+    : 0;
+
+  const defaulters = Array.isArray(lowAttendanceStudents)
+    ? lowAttendanceStudents.filter((student) => Number(student?.attendancePercentage || 0) < 75)
+    : [];
+
+  const exportDefaultersCsv = () => {
+    if (!defaulters.length) return;
+
+    const headers = [
+      'Student Name',
+      'Roll Number',
+      'Email',
+      'Group',
+      'Attendance %',
+      'Present Count',
+      'Late Count',
+      'Total Classes'
+    ];
+
+    const escapeCsv = (value) => {
+      const text = value === undefined || value === null ? '' : String(value);
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const rows = defaulters.map((student) => [
+      student?.studentName || `Student ${String(student?._id || '').substring(0, 6)}`,
+      student?.rollNumber || '',
+      student?.email || '',
+      student?.groupName || '',
+      Number(student?.attendancePercentage || 0).toFixed(1),
+      student?.presentCount || 0,
+      student?.lateCount || 0,
+      student?.totalClasses || 0
+    ].map(escapeCsv).join(','));
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const today = new Date().toISOString().split('T')[0];
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `defaulter-list-${today}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Overall status data for pie chart
   const statusData = [
     { name: 'Present', value: overallStats.statusCounts.present || 0 },
     { name: 'Absent', value: overallStats.statusCounts.absent || 0 },
     { name: 'Late', value: overallStats.statusCounts.late || 0 }
   ];
+  const nonZeroStatusData = statusData.filter((item) => item.value > 0);
   
   // Colors for pie chart - adjusted for themes
   const COLORS = isDark 
@@ -103,7 +163,11 @@ const AttendanceDashboard = () => {
             >
               {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-            <button className={isDark ? currentTheme.button?.primary : "px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700"}>
+            <button
+              onClick={exportDefaultersCsv}
+              disabled={!defaulters.length}
+              className={isDark ? `${currentTheme.button?.primary} disabled:opacity-50` : "px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 disabled:opacity-50"}
+            >
               Export Report
             </button>
             <button 
@@ -117,7 +181,7 @@ const AttendanceDashboard = () => {
 
         {/* Tabs */}
         <div className={`flex ${isDark ? 'border-b border-gray-800' : 'border-b border-gray-200'} mb-6`}>
-          {['overview', 'classes', 'courses', 'students'].map((tab) => (
+          {['overview', 'classes', 'courses', 'students', 'defaulters'].map((tab) => (
             <button 
               key={tab}
               className={`py-4 px-6 font-medium ${
@@ -151,7 +215,7 @@ const AttendanceDashboard = () => {
             <div>
               <p className={isDark ? "text-sm text-gray-400" : "text-sm text-gray-500"}>Present Rate</p>
               <p className="text-2xl font-semibold">
-                {Math.round(((overallStats.statusCounts.present || 0) / overallStats.totalRecords) * 100)}%
+                {presentRate}%
               </p>
             </div>
           </div>
@@ -163,7 +227,7 @@ const AttendanceDashboard = () => {
             <div>
               <p className={isDark ? "text-sm text-gray-400" : "text-sm text-gray-500"}>Late Rate</p>
               <p className="text-2xl font-semibold">
-                {Math.round(((overallStats.statusCounts.late || 0) / overallStats.totalRecords) * 100)}%
+                {lateRate}%
               </p>
             </div>
           </div>
@@ -175,7 +239,7 @@ const AttendanceDashboard = () => {
             <div>
               <p className={isDark ? "text-sm text-gray-400" : "text-sm text-gray-500"}>Absent Rate</p>
               <p className="text-2xl font-semibold">
-                {Math.round(((overallStats.statusCounts.absent || 0) / overallStats.totalRecords) * 100)}%
+                {absentRate}%
               </p>
             </div>
           </div>
@@ -188,27 +252,32 @@ const AttendanceDashboard = () => {
             <div className={isDark ? currentTheme.card : "bg-white rounded-lg shadow p-6"}>
               <h2 className="text-lg font-medium mb-4">Overall Attendance</h2>
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={isDark ? { backgroundColor: '#1f2937', borderColor: '#374151', color: 'white' } : {}} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                {nonZeroStatusData.length === 0 ? (
+                  <div className={`h-full flex items-center justify-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    No attendance records available yet.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={nonZeroStatusData}
+                        cx="50%"
+                        cy="45%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        paddingAngle={3}
+                      >
+                        {nonZeroStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={isDark ? { backgroundColor: '#1f2937', borderColor: '#374151', color: 'white' } : {}} />
+                      <Legend verticalAlign="bottom" height={36} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -218,8 +287,6 @@ const AttendanceDashboard = () => {
                 <h2 className="text-lg font-medium">Low Attendance Students</h2>
                 <button className={isDark ? "text-sm text-blue-400 hover:text-blue-300" : "text-sm text-blue-600 hover:text-blue-800"}>View All</button>
               </div>
-              {console.log(lowAttendanceStudents)}
-              
               {lowAttendanceStudents && lowAttendanceStudents.length > 0 ? (
                 <div className={isDark ? "divide-y divide-gray-800" : "divide-y divide-gray-200"}>
                   {lowAttendanceStudents.map((student) => (
@@ -229,10 +296,9 @@ const AttendanceDashboard = () => {
                           <Users className={isDark ? "h-5 w-5 text-gray-400" : "h-5 w-5 text-gray-500"} />
                         </div>
                         <div>
-                          <p className="font-medium">Student {student._id.substring(0, 6)}</p>
+                          <p className="font-medium">{student?.studentName || `Student ${student?._id?.substring(0, 6) || ''}`}</p>
                           <p className={isDark ? "text-sm text-gray-400" : "text-sm text-gray-500"}>
-                            Present: {student.presentCount} | Late: {student.lateCount} | 
-                            Total: {student.totalClasses}
+                            Roll: {student?.rollNumber || 'N/A'} | Group: {student?.groupName || 'N/A'}
                           </p>
                         </div>
                       </div>
@@ -346,6 +412,64 @@ const AttendanceDashboard = () => {
                 <p>Search for a student to view detailed attendance records</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'defaulters' && (
+          <div className={isDark ? currentTheme.card : "bg-white rounded-lg shadow p-6"}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium">Defaulter List (&lt; 75%)</h2>
+              <button
+                onClick={exportDefaultersCsv}
+                disabled={!defaulters.length}
+                className={isDark ? "px-3 py-2 rounded-md bg-[#1E2733] hover:bg-[#2A3744] text-white disabled:opacity-50" : "px-3 py-2 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50"}
+              >
+                Export CSV
+              </button>
+            </div>
+
+            {!defaulters.length ? (
+              <div className={isDark ? "bg-gray-900 rounded-lg p-6 text-center text-gray-400" : "bg-gray-100 rounded-lg p-6 text-center text-gray-500"}>
+                <p>No defaulters found. Great attendance trend!</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className={`min-w-full text-sm ${currentTheme.text}`}>
+                  <thead className={isDark ? "bg-gray-900 text-gray-300" : "bg-gray-100 text-gray-700"}>
+                    <tr>
+                      <th className="text-left px-4 py-3">Student</th>
+                      <th className="text-left px-4 py-3">Roll No</th>
+                      <th className="text-left px-4 py-3">Group</th>
+                      <th className="text-left px-4 py-3">Present</th>
+                      <th className="text-left px-4 py-3">Late</th>
+                      <th className="text-left px-4 py-3">Total</th>
+                      <th className="text-left px-4 py-3">Attendance %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {defaulters.map((student, index) => (
+                      <tr
+                        key={student?._id || index}
+                        className={isDark ? "border-b border-gray-800" : "border-b border-gray-200"}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{student?.studentName || `Student ${String(student?._id || '').substring(0, 6)}`}</div>
+                          <div className={isDark ? "text-gray-400" : "text-gray-500"}>{student?.email || ''}</div>
+                        </td>
+                        <td className="px-4 py-3">{student?.rollNumber || 'N/A'}</td>
+                        <td className="px-4 py-3">{student?.groupName || 'N/A'}</td>
+                        <td className="px-4 py-3">{student?.presentCount || 0}</td>
+                        <td className="px-4 py-3">{student?.lateCount || 0}</td>
+                        <td className="px-4 py-3">{student?.totalClasses || 0}</td>
+                        <td className="px-4 py-3 font-semibold text-red-500">
+                          {Number(student?.attendancePercentage || 0).toFixed(1)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

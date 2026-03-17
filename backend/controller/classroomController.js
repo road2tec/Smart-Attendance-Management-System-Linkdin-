@@ -236,7 +236,8 @@ const classroomController = {
         .populate('assignedTeacher', 'firstName lastName email')
         .populate('group', 'name')
         .populate('course', 'title code')
-        .populate('assignedStudents', 'firstName lastName email');
+        .populate('assignedStudents', 'firstName lastName email')
+        .populate('sharedResources');
       
       if (!classroom) {
         return res.status(404).json({ message: 'Classroom not found' });

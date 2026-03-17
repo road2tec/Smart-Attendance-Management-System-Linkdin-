@@ -16,6 +16,9 @@ const classRoutes = require('./routes/classRoutes');
 const classroomRoutes = require('./routes/classroomRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes')
 const attendanceStatsRoutes = require('./routes/attendanceStats')
+const resultRoutes = require('./routes/resultRoutes');
+const emailRoutes = require('./routes/emailRoutes');
+const logsRoutes = require('./routes/logsRoutes');
 const server = http.createServer(app);
 
 
@@ -34,11 +37,14 @@ app.use('/api/face-recognition', faceRecognitionRoutes);
 app.use('/api/courses',authMiddleware, courseRoutes);
 app.use('/api/groups',authMiddleware, groupRoutes);
 app.use('/api/users',authMiddleware, userRoutes);
-app.use('/api/departments', authMiddleware, departmentRoutes);
+app.use('/api/departments', departmentRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/classroom', classroomRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/attendanceStats', attendanceStatsRoutes);
+app.use('/api/results', resultRoutes);
+app.use('/api/email', emailRoutes);
+app.use('/api/logs', logsRoutes);
 // Connect to MongoDB
 connectDB();
 app.get('/', (req, res) => {

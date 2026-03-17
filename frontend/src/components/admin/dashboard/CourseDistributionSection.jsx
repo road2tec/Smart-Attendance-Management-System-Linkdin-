@@ -125,12 +125,12 @@ export default function CourseDistributionSection({ coursesData }) {
   const navigate = useNavigate();
   
   // Process the courses data for chart display
-  const processedCourseData = coursesData.map(course => ({
+  const processedCourseData = (coursesData || []).map(course => ({
     id: course._id,
     name: course.courseName,
     code: course.courseCode,
-    students: course.enrolledStudents.length,
-    maxCapacity: course.maxCapacity,
+    students: Array.isArray(course.enrolledStudents) ? course.enrolledStudents.length : 0,
+    maxCapacity: course.maxCapacity || 0,
     department: course.department?.name || 'Unknown Department',
     departmentCode: course.department?.code || 'N/A',
     coordinator: course.courseCoordinator || 'Not Assigned',
@@ -139,7 +139,7 @@ export default function CourseDistributionSection({ coursesData }) {
     description: course.courseDescription,
     credits: course.credits,
     isActive: course.isActive,
-    color: generateColor(course.department?.name || course.courseName)
+    color: generateColor(course.department?.name || course.courseName || '')
   }));
   
   // Get available courses (active courses with available capacity)

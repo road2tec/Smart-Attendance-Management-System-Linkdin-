@@ -4,17 +4,29 @@ import * as faceapi from "face-api.js";
 const ProfileCameraCapture = ({ onImageCapture }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const detectionIntervalRef = useRef(null);
+  const videoReadyIntervalRef = useRef(null);
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [faceEmbedding, setFaceEmbedding] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showVideoCanvas, setShowVideoCanvas] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   // Cleanup on unmount
   useEffect(() => {
     const cleanup = () => {
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+        detectionIntervalRef.current = null;
+      }
+      if (videoReadyIntervalRef.current) {
+        clearInterval(videoReadyIntervalRef.current);
+        videoReadyIntervalRef.current = null;
+      }
       if (videoRef.current && videoRef.current.srcObject) {
         const tracks = videoRef.current.srcObject.getTracks();
         tracks.forEach(track => track.stop());
@@ -38,6 +50,7 @@ const ProfileCameraCapture = ({ onImageCapture }) => {
         
         console.log("Face detection models loaded successfully");
         setIsModelLoaded(true);
+        setError(null);
         setLoading(false);
       } catch (error) {
         console.error("Error loading face detection models:", error);
@@ -54,6 +67,7 @@ const ProfileCameraCapture = ({ onImageCapture }) => {
     try {
       setLoading(true);
       setError(null);
+      setIsVideoReady(false);
       setShowVideoCanvas(true); // Show video and canvas when starting camera
       
       console.log("Requesting camera access...");
@@ -86,6 +100,7 @@ const ProfileCameraCapture = ({ onImageCapture }) => {
             videoHeight: videoRef.current.videoHeight
           });
           setIsCameraActive(true);
+          setIsVideoReady(true);
           setLoading(false);
         })
         .catch(err => {
@@ -122,24 +137,45 @@ const ProfileCameraCapture = ({ onImageCapture }) => {
         startFaceDetection();
       } else {
         // Wait for video to start playing with dimensions
-        const checkVideoReady = setInterval(() => {
+        if (videoReadyIntervalRef.current) {
+          clearInterval(videoReadyIntervalRef.current);
+        }
+        videoReadyIntervalRef.current = setInterval(() => {
           if (video.readyState >= 2 && !video.paused && video.videoWidth > 0) {
             console.log(`Video ready: dimensions ${video.videoWidth}x${video.videoHeight}`);
-            clearInterval(checkVideoReady);
+            setIsVideoReady(true);
+            clearInterval(videoReadyIntervalRef.current);
+            videoReadyIntervalRef.current = null;
             startFaceDetection();
           }
         }, 100);
       }
     }
+
+    return () => {
+      if (videoReadyIntervalRef.current) {
+        clearInterval(videoReadyIntervalRef.current);
+        videoReadyIntervalRef.current = null;
+      }
+    };
   }, [isCameraActive, isModelLoaded]);
 
   // Stop camera
   const stopCamera = () => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
+    if (videoReadyIntervalRef.current) {
+      clearInterval(videoReadyIntervalRef.current);
+      videoReadyIntervalRef.current = null;
+    }
     if (videoRef.current && videoRef.current.srcObject) {
       const tracks = videoRef.current.srcObject.getTracks();
       tracks.forEach(track => track.stop());
       videoRef.current.srcObject = null;
       setIsCameraActive(false);
+      setIsVideoReady(false);
       setShowVideoCanvas(false); // Hide video and canvas when stopping camera
     }
   };
@@ -173,10 +209,16 @@ const ProfileCameraCapture = ({ onImageCapture }) => {
     
     // Run continuous face detection
     console.log("Starting continuous face detection");
-    const detectionInterval = setInterval(async () => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+    }
+    detectionIntervalRef.current = setInterval(async () => {
       if (!videoRef.current || !canvasRef.current || !isCameraActive) {
         console.log("Detection stopped: video or canvas ref is null or camera inactive");
-        clearInterval(detectionInterval);
+        if (detectionIntervalRef.current) {
+          clearInterval(detectionIntervalRef.current);
+          detectionIntervalRef.current = null;
+        }
         return;
       }
       
@@ -215,12 +257,18 @@ const ProfileCameraCapture = ({ onImageCapture }) => {
 
   // Capture image and face embedding
   const captureImage = async () => {
-    if (!videoRef.current || !isModelLoaded) {
-      setError("Video or face detection models not ready");
+    if (isCapturing) {
+      return;
+    }
+
+    if (!videoRef.current || !isModelLoaded || !isVideoReady) {
+      setError("Camera is still initializing. Please wait a moment, then capture again.");
       return;
     }
     
     try {
+      setIsCapturing(true);
+      setError(null);
       console.log("Attempting to capture image");
       const video = videoRef.current;
       
@@ -248,6 +296,7 @@ const ProfileCameraCapture = ({ onImageCapture }) => {
       tempCanvas.toBlob((blob) => {
         if (!blob) {
           setError("Failed to create image blob");
+          setIsCapturing(false);
           return;
         }
         
@@ -270,11 +319,13 @@ const ProfileCameraCapture = ({ onImageCapture }) => {
         // Stop the camera and hide video/canvas
         stopCamera();
         setShowVideoCanvas(false);
+        setIsCapturing(false);
       }, 'image/png');
       
     } catch (error) {
       console.error("Error capturing image:", error);
       setError(`Error capturing image: ${error.message}`);
+      setIsCapturing(false);
     }
   };
 
@@ -333,9 +384,10 @@ const ProfileCameraCapture = ({ onImageCapture }) => {
           <button
             type="button"
             onClick={captureImage}
-            className="px-3 py-2 bg-green-600 text-white rounded-lg"
+            disabled={!isModelLoaded || !isVideoReady || loading || isCapturing}
+            className={`px-3 py-2 text-white rounded-lg ${(!isModelLoaded || !isVideoReady || loading || isCapturing) ? 'bg-green-400 cursor-not-allowed opacity-70' : 'bg-green-600'}`}
           >
-            Capture
+            {isCapturing ? 'Capturing...' : (!isModelLoaded || !isVideoReady ? 'Initializing...' : 'Capture')}
           </button>
           <button
             type="button"

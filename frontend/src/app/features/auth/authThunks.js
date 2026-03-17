@@ -10,8 +10,10 @@ export const register = createAsyncThunk(
       const response = await authService.register(userData)
       return response ;
     } catch (error) {
+      const isNetworkError = !error.response;
       const message = 
-        error.response?.data?.message || 
+        error.response?.data?.message ||
+        (isNetworkError ? 'Cannot connect to server. Please verify backend is running and VITE_API_URL is correct.' : null) ||
         error.message || 
         'Registration failed';
       return thunkAPI.rejectWithValue(message);
@@ -52,19 +54,11 @@ export const getCurrentUser = createAsyncThunk(
     }
   }
 );
-export const getDepartments = createAsyncThunk('auth/departments', 
-  async(_, thunkAPI)=>{
-    try {
-      const response = await authService.getDepartments();
-      return response;
-    } catch (error) {
-      const message = 
-        error.response?.data?.message || 
-        error.message || 
-        'Failed to get current user';
-      return thunkAPI.rejectWithValue(message);
-      
-    }
+export const getDepartments = createAsyncThunk('auth/departments',
+  async (_, thunkAPI) => {
+    // authService.getDepartments now returns an array or [] on errors.
+    const response = await authService.getDepartments();
+    return response || [];
   }
 )
 

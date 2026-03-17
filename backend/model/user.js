@@ -140,8 +140,6 @@ userSchema.statics.findAdmins = function(query = {}) {
 
 // Indexes for better query performance
 userSchema.index({ role: 1 });
-userSchema.index({ rollNumber: 1 }, { sparse: true });
-userSchema.index({ employeeId: 1 }, { sparse: true });
 
 const User = mongoose.model('User', userSchema);
 

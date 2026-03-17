@@ -5,11 +5,12 @@ import { useTheme } from '../../context/ThemeProvider';
 import ClassroomList from '../../components/teacher/ClassroomList';
 import ClassroomHeader from '../../components/teacher/ClassroomHeader';
 import ClassScheduler from '../../components/teacher/ClassScheduler';
-import HomeworkPanel from '../../components/teacher/HomeworkPanel';
 import MaterialSharing from '../../components/teacher/MaterialSharing'
 import ClassHistory from '../../components/teacher/ClassHistory';
 import { getClassroomsByTeacher } from '../../app/features/classroom/classroomThunks';
 import ClassroomAttendance from '../../components/teacher/ClassroomAttendance';
+import ClassSchedulingModal from '../../components/teacher/modals/ClassSchedulingModal';
+import { scheduleClass } from '../../app/features/class/classThunks';
 
 // Main Dashboard Component
 export default function TeacherDashboard() {
@@ -18,6 +19,8 @@ export default function TeacherDashboard() {
   const [activeClassroom, setActiveClassroom] = useState(null);
   const [attendanceActive, setAttendanceActive] = useState(false);
   const [activeTab, setActiveTab] = useState('materials');
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [selectedClassroomForScheduling, setSelectedClassroomForScheduling] = useState(null);
   const { user, isAuthenticated } = useSelector(state => state.auth);
   // Access theme from context
   const { theme, toggleTheme, themeConfig, isDark } = useTheme();
@@ -138,6 +141,42 @@ export default function TeacherDashboard() {
     setAttendanceActive(!attendanceActive);
   };
 
+  const handleNewClass = () => {
+    // If no classrooms, show a message
+    if (!teacherClassrooms || teacherClassrooms.length === 0) {
+      alert('You need to have at least one assigned classroom to schedule a class.');
+      return;
+    }
+    // Use the first classroom by default, or let user select
+    const firstClassroom = getClassroomData()[0];
+    setSelectedClassroomForScheduling(firstClassroom);
+    setIsScheduleModalOpen(true);
+  };
+
+  const handleSaveSchedule = async (scheduleData) => {
+    try {
+      await dispatch(scheduleClass({
+        ...scheduleData,
+        classroom: selectedClassroomForScheduling?.id,
+        teacher: user._id
+      })).unwrap();
+      
+      setIsScheduleModalOpen(false);
+      setSelectedClassroomForScheduling(null);
+      
+      // Optionally refresh classrooms
+      dispatch(getClassroomsByTeacher(user._id));
+    } catch (err) {
+      console.error('Error scheduling class:', err);
+      alert(err || 'Failed to schedule class. Please try again.');
+    }
+  };
+
+  const handleCloseScheduleModal = () => {
+    setIsScheduleModalOpen(false);
+    setSelectedClassroomForScheduling(null);
+  };
+
   return (
     <div className={`flex flex-col min-h-screen ${isDark ? 'bg-gradient-to-br from-[#0A0E13] to-[#121A22]' : 'bg-gradient-to-br from-slate-50 to-white'}`}>
       {/* Header */}
@@ -181,11 +220,25 @@ export default function TeacherDashboard() {
             </div>
           </div>
         ) : view === 'classrooms' ? (
-          <ClassroomList 
-            classrooms={getClassroomData()} 
-            onSelect={handleClassroomSelect} 
-            isDark={isDark} 
-          />
+          <>
+            <ClassroomList 
+              classrooms={getClassroomData()} 
+              onSelect={handleClassroomSelect}
+              onNewClass={handleNewClass}
+              isDark={isDark} 
+            />
+            
+            {isScheduleModalOpen && selectedClassroomForScheduling && (
+              <ClassSchedulingModal
+                isDark={isDark}
+                currentTheme={currentTheme}
+                classroom={selectedClassroomForScheduling}
+                onClose={handleCloseScheduleModal}
+                onSave={handleSaveSchedule}
+                classToEdit={null}
+              />
+            )}
+          </>
         ) : (
           <div className="flex flex-col space-y-6">
             {console.log((activeClassroom))}
@@ -221,17 +274,9 @@ export default function TeacherDashboard() {
                     >
                       Schedule
                     </button>
-                    <button 
-                      className={`px-6 py-4 font-medium text-sm ${activeTab === 'homework' 
-                        ? (isDark ? 'border-b-2 border-[#506EE5] text-[#506EE5]' : 'border-b-2 border-blue-600 text-blue-600') 
-                        : (isDark ? 'text-white' : 'text-slate-700')}`}
-                      onClick={() => setActiveTab('homework')}
-                    >
-                      Homework
-                    </button>
-                    <button 
-                      className={`px-6 py-4 font-medium text-sm ${activeTab === 'history' 
-                        ? (isDark ? 'border-b-2 border-[#506EE5] text-[#506EE5]' : 'border-b-2 border-blue-600 text-blue-600') 
+                    <button
+                      className={`px-6 py-4 font-medium text-sm ${activeTab === 'history'
+                        ? (isDark ? 'border-b-2 border-[#506EE5] text-[#506EE5]' : 'border-b-2 border-blue-600 text-blue-600')
                         : (isDark ? 'text-white' : 'text-slate-700')}`}
                       onClick={() => setActiveTab('history')}
                     >
@@ -248,13 +293,6 @@ export default function TeacherDashboard() {
                     )}
                     {activeTab === 'schedule' && (
                       <ClassScheduler 
-                        isDark={isDark} 
-                        currentTheme={currentTheme} 
-                        classroom={activeClassroom}
-                      />
-                    )}
-                    {activeTab === 'homework' && (
-                      <HomeworkPanel 
                         isDark={isDark} 
                         currentTheme={currentTheme} 
                         classroom={activeClassroom}

@@ -383,7 +383,17 @@ const LoginPage = () => {
       return;
     }
 
-    const resultAction = dispatch(login({ email, password })).then(navigate(`/${user.role}/dashboard`))
+    try {
+      const result = await dispatch(login({ email, password })).unwrap();
+      const role = result?.user?.role;
+      if (role) {
+        navigate(`/${role}/dashboard`);
+      } else {
+        setError('Login succeeded, but user role is missing.');
+      }
+    } catch (loginError) {
+      setError(loginError || 'Login failed. Please try again.');
+    }
   };
 
   const SocialButton = ({ icon, text, color }) => (

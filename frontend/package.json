@@ -16,6 +16,8 @@
     "date-fns": "^4.1.0",
     "face-api.js": "^0.22.2",
     "framer-motion": "^12.5.0",
+    "jspdf": "^4.2.0",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.483.0",
     "react": "^19.0.0",
     "react-chartjs-2": "^5.3.0",
@@ -27,6 +29,7 @@
     "react-router-dom": "^7.4.0",
     "react-toastify": "^11.0.5",
     "recharts": "^2.15.1",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.3"
   },
   "devDependencies": {

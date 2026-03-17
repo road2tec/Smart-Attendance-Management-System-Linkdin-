@@ -44,6 +44,7 @@ const login = async (req, res) => {
 const signup = async (req, res) => {
     try {
         upload.single('profileImage')(req, res, async (err) => {
+            try {
             if (err) {
                 return res.status(400).json({ message: `Image upload failed ${err}` });
             }
@@ -68,8 +69,41 @@ const signup = async (req, res) => {
             } = req.body;
             // console.log(req.body);
             
-            // Parse face embedding data
-            const parsedEmbedding = JSON.parse(faceEmbedding);
+            if (!faceEmbedding) {
+                return res.status(400).json({ message: 'Face capture is required. Please capture a clear face image and try again.' });
+            }
+
+            let parsedEmbedding;
+            try {
+                parsedEmbedding = typeof faceEmbedding === 'string'
+                    ? JSON.parse(faceEmbedding)
+                    : faceEmbedding;
+            } catch (parseError) {
+                return res.status(400).json({ message: 'Invalid face embedding data. Please recapture your face and try again.' });
+            }
+
+            if (!Array.isArray(parsedEmbedding) || parsedEmbedding.length === 0) {
+                return res.status(400).json({ message: 'Face embedding data is empty. Please recapture your face and try again.' });
+            }
+
+            let parsedPermanentAddress = permanentAddress;
+            let parsedCurrentAddress = currentAddress;
+
+            if (typeof permanentAddress === 'string') {
+                try {
+                    parsedPermanentAddress = JSON.parse(permanentAddress);
+                } catch (parseError) {
+                    return res.status(400).json({ message: 'Invalid permanent address format.' });
+                }
+            }
+
+            if (typeof currentAddress === 'string') {
+                try {
+                    parsedCurrentAddress = JSON.parse(currentAddress);
+                } catch (parseError) {
+                    return res.status(400).json({ message: 'Invalid current address format.' });
+                }
+            }
             
             if (!password) {
                 return res.status(400).json({ message: 'Password is required' });
@@ -114,8 +148,8 @@ const signup = async (req, res) => {
                 password: hashedPassword,
                 role: role ? role.toLowerCase() : "", 
                 mobile,
-                permanentAddress, 
-                currentAddress,   
+                permanentAddress: parsedPermanentAddress, 
+                currentAddress: parsedCurrentAddress,   
                 rollNumber,
                 admissionYear,
                 department: departmentExists,
@@ -177,6 +211,10 @@ const signup = async (req, res) => {
                 token,
                 user
             });
+            } catch (innerError) {
+                console.error('Signup processing error:', innerError);
+                return res.status(500).json({ message: 'Server error' });
+            }
         });
 
     } catch (error) {

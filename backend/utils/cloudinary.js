@@ -11,6 +11,7 @@ const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
         folder: 'uploads',
+        resource_type: 'auto',
         // Added document formats along with image formats
         allowed_formats: [
             // Images

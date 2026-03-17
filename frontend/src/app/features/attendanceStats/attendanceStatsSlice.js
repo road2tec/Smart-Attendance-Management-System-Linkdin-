@@ -34,126 +34,91 @@ const attendanceStatsSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    const beginRequest = (state) => {
+      state.isLoading = true;
+      state.isSuccess = false;
+      state.isError = false;
+      state.message = '';
+    };
+
+    const completeRequest = (state) => {
+      state.isLoading = false;
+      state.isSuccess = true;
+      state.isError = false;
+      state.message = '';
+    };
+
+    const failRequest = (state, action) => {
+      state.isLoading = false;
+      state.isSuccess = false;
+      state.isError = true;
+      state.message = action.payload || 'Something went wrong';
+    };
+
     builder
       // getMyAttendance
-      .addCase(getMyAttendance.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getMyAttendance.pending, beginRequest)
       .addCase(getMyAttendance.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
+        completeRequest(state);
         state.studentAttendance = action.payload.data;
       })
-      .addCase(getMyAttendance.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
-      })
+      .addCase(getMyAttendance.rejected, failRequest)
       
       // getStudentAttendance
-      .addCase(getStudentAttendance.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getStudentAttendance.pending, beginRequest)
       .addCase(getStudentAttendance.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
+        completeRequest(state);
         state.studentAttendance = action.payload.data;
       })
-      .addCase(getStudentAttendance.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
-      })
+      .addCase(getStudentAttendance.rejected, failRequest)
       
       // getClassAttendance
-      .addCase(getClassAttendance.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getClassAttendance.pending, beginRequest)
       .addCase(getClassAttendance.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
+        completeRequest(state);
         state.classAttendance = action.payload.data;
       })
-      .addCase(getClassAttendance.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
-      })
+      .addCase(getClassAttendance.rejected, failRequest)
       
       // getClassroomAttendance
-      .addCase(getClassroomAttendance.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getClassroomAttendance.pending, beginRequest)
       .addCase(getClassroomAttendance.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
+        completeRequest(state);
         state.classroomAttendance = action.payload.data;
       })
-      .addCase(getClassroomAttendance.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
-      })
+      .addCase(getClassroomAttendance.rejected, failRequest)
       
       // getTeacherAttendance
-      .addCase(getTeacherAttendance.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getTeacherAttendance.pending, beginRequest)
       .addCase(getTeacherAttendance.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
+        completeRequest(state);
         state.teacherAttendance = action.payload.data;
       })
-      .addCase(getTeacherAttendance.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
-      })
+      .addCase(getTeacherAttendance.rejected, failRequest)
       
       // getOverallAttendance
-      .addCase(getOverallAttendance.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getOverallAttendance.pending, beginRequest)
       .addCase(getOverallAttendance.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
+        completeRequest(state);
         state.overallAttendance = action.payload.data;
       })
-      .addCase(getOverallAttendance.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
-      })
+      .addCase(getOverallAttendance.rejected, failRequest)
       
       // getDailyAttendanceReport
-      .addCase(getDailyAttendanceReport.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getDailyAttendanceReport.pending, beginRequest)
       .addCase(getDailyAttendanceReport.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
+        completeRequest(state);
         state.dailyReport = action.payload.data;
       })
-      .addCase(getDailyAttendanceReport.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
-      })
+      .addCase(getDailyAttendanceReport.rejected, failRequest)
       
       // getMonthlyAttendanceReport
-      .addCase(getMonthlyAttendanceReport.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(getMonthlyAttendanceReport.pending, beginRequest)
       .addCase(getMonthlyAttendanceReport.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.isSuccess = true;
+        completeRequest(state);
         state.monthlyReport = action.payload.data;
       })
-      .addCase(getMonthlyAttendanceReport.rejected, (state, action) => {
-        state.isLoading = false;
-        state.isError = true;
-        state.message = action.payload;
-      });
+      .addCase(getMonthlyAttendanceReport.rejected, failRequest);
   },
 });
 

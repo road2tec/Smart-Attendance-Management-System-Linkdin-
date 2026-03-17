@@ -5,9 +5,9 @@ import GeneralSettings from '../../components/admin/settings/GeneralSettings';
 import AccountSettings from '../../components/admin/settings/AccountSettings';
 import IntegrationSettings from '../../components/admin/settings/IntegrationSettings';
 import NotificationSettings from '../../components/admin/settings/NotificationSettings';
-import AppearanceSettings from '../../components/admin/settings/AppearanceSettings';
 import SystemSettings from '../../components/admin/settings/SystemSettings';
 import SecuritySettings from '../../components/admin/settings/SecuritySettings';
+import EmailManagementSettings from '../../components/admin/settings/EmailManagementSettings';
 export default function AdminSettings() {
   const { themeConfig, theme, toggleTheme } = useTheme();
   const colors = themeConfig[theme];
@@ -37,8 +37,8 @@ export default function AdminSettings() {
             {activeTab === 'general' && <GeneralSettings colors={colors} toggleTheme={toggleTheme} theme={theme} />}
             {activeTab === 'account' && <AccountSettings colors={colors} />}
             {activeTab === 'notifications' && <NotificationSettings colors={colors} />}
+            {activeTab === 'email' && <EmailManagementSettings colors={colors} theme={theme} />}
             {activeTab === 'security' && <SecuritySettings colors={colors} />}
-            {activeTab === 'appearance' && <AppearanceSettings colors={colors} toggleTheme={toggleTheme} theme={theme} />}
             {activeTab === 'integration' && <IntegrationSettings colors={colors} />}
             {activeTab === 'system' && <SystemSettings colors={colors} />}
           </div>

@@ -25,14 +25,16 @@ const ClassroomView = ({ selectedClassroom }) => {
   const dispatch = useDispatch();
   const { classes, isLoading, isError, message } = useSelector((state) => state.classes);
   const { user, isAuthenticated } = useSelector(state => state.auth);
+  const { sharedMaterials, currentClassroom } = useSelector((state) => state.classrooms);
 
-  // Fetch classes when component mounts or classroomId changes
+  // Fetch classes when component mounts or classroomId changes.
+  // NOTE: getClassroomById is already dispatched by StudentClassroomPortal,
+  // so we only fetch classes here to avoid causing a re-render cycle.
   useEffect(() => {
     if (classroomId) {
       dispatch(getClassesByClassroom(classroomId));
     }
-    
-    // Cleanup function
+
     return () => {
       dispatch(reset());
     };
@@ -46,6 +48,12 @@ const ClassroomView = ({ selectedClassroom }) => {
     const period = hour >= 12 ? 'PM' : 'AM';
     const hour12 = hour % 12 || 12; // Convert 0 to 12 for 12 AM
     return `${hour12}:${minutes} ${period}`;
+  };
+
+  // Transform Cloudinary URL to force file download with correct headers
+  const getDownloadUrl = (url) => {
+    if (!url || !url.includes('cloudinary.com')) return url;
+    return url.replace('/upload/', '/upload/fl_attachment/');
   };
 
   // Helper function to check if a specific day of week is included in daysOfWeek array
@@ -626,9 +634,45 @@ const ClassroomView = ({ selectedClassroom }) => {
     }
   ];
 
-  // Use real classes or mock classes
-  const processedClasses = isLoading || isError ? [] : 
-                          (classes.length > 0 ? processClasses(classes) : processClasses(mockClasses));
+  // Use real classes or mock classes with error handling
+  const processedClasses = React.useMemo(() => {
+    try {
+      if (isLoading || isError) return [];
+      if (classes.length > 0) {
+        return processClasses(classes);
+      } else {
+        return processClasses(mockClasses);
+      }
+    } catch (error) {
+      console.error('Error processing classes:', error);
+      return []; // Return empty array on error to prevent crash
+    }
+  }, [classes, isLoading, isError]);
+
+  // Debug log to help troubleshoot (removed processedClasses from deps to prevent infinite loop)
+  React.useEffect(() => {
+    console.log('ClassroomView Debug:', {
+      selectedClassroomName: selectedClassroom?.name,
+      classroomId,
+      classesLength: classes?.length || 0,
+      currentClassroomName: currentClassroom?.name,
+      isLoading,
+      isError,
+      message
+    });
+  }, [selectedClassroom?.name, classroomId, classes?.length, currentClassroom?.name, isLoading, isError, message]);
+
+  // Early return for critical errors
+  if (!selectedClassroom) {
+    return (
+      <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} flex items-center justify-center`}>
+        <div className={`p-8 text-center ${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow`}>
+          <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-500" />
+          <p>No classroom selected</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
@@ -809,11 +853,74 @@ const ClassroomView = ({ selectedClassroom }) => {
           </div>
         ) : activeTab === 'notes' ? (
           <div className={`p-6 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
-            <h2 className="text-lg font-semibold mb-4">Course Notes</h2>
-            <div className={`p-8 text-center ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg`}>
-              <FileText className={`w-12 h-12 mx-auto mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-              <p className="font-medium">No notes available for this course yet</p>
-            </div>
+            <h2 className="text-lg font-semibold mb-4">Course Notes & Materials</h2>
+
+            {/* Get materials from current classroom */}
+            {currentClassroom?.sharedResources && currentClassroom.sharedResources.length > 0 ? (
+              <div className="space-y-4">
+                {currentClassroom.sharedResources.map((material) => (
+                    <div key={material._id} className={`p-4 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            {material.title || material.files?.[0]?.filename || 'Class Material'}
+                          </h3>
+                          {material.description && (
+                            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                              {material.description}
+                            </p>
+                          )}
+                          <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                            Added {material.createdAt ? new Date(material.createdAt).toLocaleDateString() : 'recently'}
+                          </p>
+                        </div>
+                        <div className="ml-4">
+                          {material.files && material.files.length > 0 ? (
+                            <div className="space-y-2">
+                              {material.files.map((file, idx) => (
+                                <a
+                                  key={idx}
+                                  href={getDownloadUrl(file.url)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`inline-block px-3 py-1 rounded text-sm ${
+                                    isDark
+                                      ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50'
+                                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                  }`}
+                                >
+                                  Download
+                                </a>
+                              ))}
+                            </div>
+                          ) : material.link ? (
+                            <a
+                              href={material.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`inline-block px-3 py-1 rounded text-sm ${
+                                isDark
+                                  ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50'
+                                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                              }`}
+                            >
+                              Open Link
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <div className={`p-8 text-center ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg`}>
+                <FileText className={`w-12 h-12 mx-auto mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                <p className="font-medium">No notes or materials available yet</p>
+                <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Teacher will share materials here when available
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className={`p-6 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>

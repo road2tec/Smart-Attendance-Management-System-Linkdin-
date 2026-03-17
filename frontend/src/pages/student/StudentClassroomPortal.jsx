@@ -41,18 +41,18 @@ const StudentClassroomPortal = () => {
   
   // When user selects a classroom, fetch the detailed data
   useEffect(() => {
-    if (selectedClassroom) {
+    if (selectedClassroom?._id) {
       dispatch(getClassroomById(selectedClassroom._id));
-      
+
       // Also fetch attendance data for this classroom
       // dispatch(getAttendanceWindowStatus(selectedClassroom._id));
-      
+
       // Get student attendance history for this course
       if (selectedClassroom.course?._id) {
         dispatch(getStudentAttendance(selectedClassroom.course._id));
       }
     }
-  }, [dispatch, selectedClassroom]);
+  }, [dispatch, selectedClassroom?._id, selectedClassroom?.course?._id]); // Use IDs instead of full objects
   
   // Handle classroom selection
   const handleClassroomSelection = (classroom) => {

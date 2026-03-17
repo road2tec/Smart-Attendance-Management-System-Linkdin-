@@ -16,6 +16,7 @@ import StudentClassroomPortal from "./pages/student/StudentClassroomPortal";
 // Teacher Components
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import TeacherAttendanceDashboard from "./pages/teacher/TeacherAttendanceDashboard";
+import TeacherResultsPage from './pages/teacher/TeacherResultsPage';
 
 // Admin Components
 import DashboardOverview from './components/admin/DashboardOverview';
@@ -29,9 +30,13 @@ import GroupsManagementPage from "./pages/admin/GroupsManagementPage";
 // Other Components
 import CaptureImage from './pages/CaptureImage';
 import DepartmentManagementPage from "./pages/admin/DepartmentManagementPage";
+import AdminLogsPage from "./pages/admin/AdminLogsPage";
+import AdminResultsPage from "./pages/admin/AdminResultsPage";
+import LiveMonitoringPage from "./pages/admin/LiveMonitoringPage";
 import TeacherLayout from './pages/teacher/TeacherLayout'
 import ClassroomsPage from "./pages/teacher/ClassroomsPage";
 import StudentCoursesPage from "./pages/student/StudentCourses";
+import StudentResultsPage from './pages/student/StudentResultsPage';
 import SmartAttendLanding from "./pages/SmartAttendLanding";
 // import ClassroomSystem from "./pages/student/StudentClassroomPortal";
 
@@ -64,6 +69,7 @@ function App() {
         <Route path="classrooms" element= {<StudentClassroomPortal/>}></Route>
         <Route path="dashboard" element={<StudentCoursesPage />} />
         <Route path="attendance" element={<StudentClassroomPortal/>} />
+        <Route path="results" element={<StudentResultsPage />} />
         
         {/* Class-specific routes for student */}
         <Route path="courses/:courseId/classes/:classId/materials" element={<ClassMaterials />} />
@@ -83,6 +89,7 @@ function App() {
         {/* <Route path="courses" element={<CourseComponents />} /> */}
         <Route path="groups" element={<TeacherAttendanceDashboard />} />
         <Route path="classroom" element={<ClassroomsPage/>} />
+        <Route path="results" element={<TeacherResultsPage />} />
       </Route>
         {/* <Route path="attendance" element={<AttendanceManagement />} />
         <Route path="classroom" element={<VirtualClassroomDashboard/>}></Route>  */}
@@ -102,6 +109,9 @@ function App() {
         <Route path="manageCourses" element={<CourseManagement />} />
         <Route path="manageGroups" element={<GroupsManagementPage/>} />
         <Route path="manageAttendance" element={<AttendanceDashboard/>}></Route>
+        <Route path="live-monitoring" element={<LiveMonitoringPage />}></Route>
+        <Route path="logs" element={<AdminLogsPage />}></Route>
+        <Route path="results" element={<AdminResultsPage />}></Route>
         <Route path="adminSettings" element={<AdminSettings/>}></Route>
         <Route  path="manageDepartments" element={<DepartmentManagementPage/>}></Route>
       </Route>

@@ -1,7 +1,6 @@
 // authService.js
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL ;
+import axiosInstance from '../../../utils/axiosInstance';
+const API_URL = ''; // base is handled by axiosInstance
 
 // Register user
 const register = async (userData) => {
@@ -20,7 +19,7 @@ const register = async (userData) => {
     });
   }
 
-  const response = await axios.post(`${API_URL}/auth/signup`, dataToSend);
+  const response = await axiosInstance.post('/auth/signup', dataToSend);
 
   if (response.data) {
     const { token, user } = response.data;
@@ -34,7 +33,7 @@ const register = async (userData) => {
 
 // Login user
 const login = async (userData) => {
-  const response = await axios.post(`${API_URL}/auth/login`, userData);
+  const response = await axiosInstance.post('/auth/login', userData);
 
   if (response.data) {
     const { token, user } = response.data;
@@ -59,14 +58,8 @@ const getCurrentUser = async () => {
   const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
   if (!token) return null;
 
-  
   try {
-    const response = await axios.get(`${API_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    console.log(response.data.user);
-
-    
+    const response = await axiosInstance.get('/auth/me');
     return response.data;
   } catch (error) {
     logout();
@@ -75,12 +68,13 @@ const getCurrentUser = async () => {
 };
 const getDepartments = async() => {
     try {
-      const response = await axios.get(`${API_URL}/auth/departments`);
-      console.log(response.data);
-      return response.data;
+      const response = await axiosInstance.get('/auth/departments');
+      // Expecting an array from backend
+      return response.data || [];
     } catch (error) {
-      console.log('error occured in fetching departments', error);
-      return null;
+      console.log('error occured in fetching departments', error?.message || error);
+      // Return empty array on network/error so callers can continue gracefully
+      return [];
     }
 }
 
@@ -102,9 +96,8 @@ const updateProfile = async (userData) => {
     });
   }
 
-  const response = await axios.put(`${API_URL}/users/profile`, dataToSend, {
+  const response = await axiosInstance.put('/users/profile', dataToSend, {
     headers: { 
-      Authorization: `Bearer ${token}`,
       'Content-Type': 'multipart/form-data'
     },
   });

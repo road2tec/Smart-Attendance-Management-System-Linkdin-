@@ -21,7 +21,9 @@ import {
   Share2,
   Home,
   GroupIcon,
-  BookUser
+  BookUser,
+  ShieldAlert,
+  Activity
 } from "lucide-react";
 import { useTheme } from "../context/ThemeProvider";
 import { useSelector } from "react-redux";
@@ -42,10 +44,12 @@ const Sidebar = ({activeView, selectedCourse, selectedGroup, selectedClass, onNa
       { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} />, link: "/teacher/dashboard" },
       { id: "classroom", label: "Classroom", icon: <BookUser size={20} />, link: "/teacher/classroom" },
       { id: "groups", label: "Attendance Records", icon: <GroupIcon size={20} />, link: "/teacher/groups" },
+      { id: "results", label: "Results", icon: <BarChart size={20} />, link: "/teacher/results" },
     ],
     student: [
       { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} />, link: "/student/dashboard" },
       { id: "attendance", label: "Attendance", icon: <ClipboardList size={20} />, link: "/student/attendance" },
+      { id: "results", label: "Results", icon: <BarChart size={20} />, link: "/student/results" },
     ],
     admin: [
       { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} />, link: "/admin/dashboard" },
@@ -54,6 +58,9 @@ const Sidebar = ({activeView, selectedCourse, selectedGroup, selectedClass, onNa
       { id: "courses", label: "Courses", icon: <BookOpen size={20} />, link: "/admin/manageCourses" },
       { id: "groups", label: "Groups", icon: <Users size={20} />, link: "/admin/manageGroups" },
       { id: "attendance", label: "Attendance", icon: <ClipboardList size={20} />, link: "/admin/manageAttendance" },
+      { id: "live", label: "Live Monitoring", icon: <Activity size={20} />, link: "/admin/live-monitoring" },
+      { id: "results", label: "Results", icon: <BarChart size={20} />, link: "/admin/results" },
+      { id: "logs", label: "Security Logs", icon: <ShieldAlert size={20} />, link: "/admin/logs" },
       { id: "settings", label: "Settings", icon: <Settings size={20} />, link: "/admin/adminSettings" },
     ]
   };

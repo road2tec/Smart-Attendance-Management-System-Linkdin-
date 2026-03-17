@@ -7,6 +7,12 @@ import SectionHeader from './commonComponents/SectionHeader';
 export default function AttendanceCharts({ attendanceData, groupAttendanceData }) {
   const { themeConfig, theme } = useTheme();
   const colors = themeConfig[theme];
+  const courseAverage = attendanceData.length
+    ? Math.round(attendanceData.reduce((sum, item) => sum + Number(item.attendance || 0), 0) / attendanceData.length)
+    : 0;
+  const groupAverage = groupAttendanceData.length
+    ? Math.round(groupAttendanceData.reduce((sum, item) => sum + Number(item.attendance || 0), 0) / groupAttendanceData.length)
+    : 0;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -23,7 +29,7 @@ export default function AttendanceCharts({ attendanceData, groupAttendanceData }
           </div>
           <div>
             <h3 className={`${colors.secondaryText} text-sm`}>Overall Average</h3>
-            <h2 className={`${colors.text} text-2xl font-bold`}>81%</h2>
+            <h2 className={`${colors.text} text-2xl font-bold`}>{courseAverage}%</h2>
           </div>
         </div>
         
@@ -70,7 +76,7 @@ export default function AttendanceCharts({ attendanceData, groupAttendanceData }
           </div>
           <div>
             <h3 className={`${colors.secondaryText} text-sm`}>Group Performance</h3>
-            <h2 className={`${colors.text} text-2xl font-bold`}>82%</h2>
+            <h2 className={`${colors.text} text-2xl font-bold`}>{groupAverage}%</h2>
           </div>
         </div>
         

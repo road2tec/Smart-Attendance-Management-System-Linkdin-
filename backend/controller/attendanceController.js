@@ -175,16 +175,42 @@ const checkLocationValidity = async (req, res) => {
       });
     }
     
-    // Check if the class has location information
-    if (!classObj.location || !classObj.location.latitude || !classObj.location.longitude) {
-      return res.status(400).json({
-        success: false,
-        message: 'Class does not have location information set'
+    // Check if the class has location information.
+    // If not configured, skip location check — face was already verified, just mark attendance.
+    const hasClassLocation = classObj.location && classObj.location.latitude && classObj.location.longitude;
+
+    if (!hasClassLocation) {
+      const classroomNoLoc = await Classroom.findOne({ 'classes.class': classId, assignedStudents: userId });
+      if (!classroomNoLoc) {
+        return res.status(403).json({ success: false, message: 'You are not assigned to this class' });
+      }
+      if (!classroomNoLoc.isAttendanceWindowOpen(classId)) {
+        return res.status(400).json({ success: false, message: 'Attendance window is not open for this class' });
+      }
+      const existingNoLoc = await Attendance.findOne({ class: classId, student: userId, classroom: classroomNoLoc._id });
+      if (existingNoLoc) {
+        return res.status(400).json({
+          success: false,
+          message: 'Attendance already marked for this class',
+          data: { status: existingNoLoc.status, markedAt: existingNoLoc.markedAt }
+        });
+      }
+      const now = new Date();
+      const attendance = await Attendance.findOneAndUpdate(
+        { class: classId, student: userId, classroom: classroomNoLoc._id },
+        { status: 'present', markedBy: 'student', markedAt: now, faceRecognized: true },
+        { new: true, upsert: true }
+      );
+      return res.json({
+        success: true,
+        isValid: true,
+        message: 'Attendance marked successfully (face verified)',
+        data: { attendanceId: attendance._id, status: 'present', markedAt: attendance.markedAt }
       });
     }
-    
+
     // Find classroom with this class to verify student assignment
-    const classroom = await Classroom.findOne({ 
+    const classroom = await Classroom.findOne({
       'classes.class': classId,
       assignedStudents: userId
     });
@@ -310,6 +336,7 @@ const checkLocationValidity = async (req, res) => {
     
     return res.json({
       success: true,
+      isValid: true,
       message: `Location verification successful. Attendance marked as ${status}`,
       data: {
         attendanceId: attendance._id,

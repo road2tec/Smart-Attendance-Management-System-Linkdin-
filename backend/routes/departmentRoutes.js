@@ -10,6 +10,7 @@ const {
   addFacultyToDepartment,
   removeFacultyFromDepartment
 } = require('../controller/departmentController');
+const { authMiddleware } = require('../middleware/authMiddleware');
 
 const roleCheck = (roles) => {
   return (req, res, next) => {
@@ -23,7 +24,7 @@ const roleCheck = (roles) => {
 };
 
 // Create department (admin only)
-router.post('/create', roleCheck(['admin']), createDepartment);
+router.post('/create', authMiddleware, roleCheck(['admin']), createDepartment);
 
 // Get all departments
 router.get('/', getAllDepartments);
@@ -32,18 +33,18 @@ router.get('/', getAllDepartments);
 router.get('/:id', getDepartmentById);
 
 // Update department (admin only)
-router.put('/:id', roleCheck(['admin']), updateDepartment);
+router.put('/:id', authMiddleware, roleCheck(['admin']), updateDepartment);
 
 // Delete department (admin only)
-router.delete('/:id', roleCheck(['admin']), deleteDepartment);
+router.delete('/:id', authMiddleware, roleCheck(['admin']), deleteDepartment);
 
 // Assign department head (admin only)
-router.post('/:departmentId/assign-head', roleCheck(['admin']), assignDepartmentHead);
+router.post('/:departmentId/assign-head', authMiddleware, roleCheck(['admin']), assignDepartmentHead);
 
 // Add faculty to department (admin only)
-router.post('/:departmentId/add-faculty', roleCheck(['admin']), addFacultyToDepartment);
+router.post('/:departmentId/add-faculty', authMiddleware, roleCheck(['admin']), addFacultyToDepartment);
 
 // Remove faculty from department (admin only)
-router.delete('/:departmentId/remove-faculty', roleCheck(['admin']), removeFacultyFromDepartment);
+router.delete('/:departmentId/remove-faculty', authMiddleware, roleCheck(['admin']), removeFacultyFromDepartment);
 
 module.exports = router;

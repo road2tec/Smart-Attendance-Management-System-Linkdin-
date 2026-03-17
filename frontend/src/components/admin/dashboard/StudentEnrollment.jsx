@@ -1,50 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { useTheme } from '../../../context/ThemeProvider';
-import { Users, ArrowUpRight, ChevronRight } from 'lucide-react';
+import { Users, ChevronRight } from 'lucide-react';
 import StatCard from './commonComponents/StatCard';
 import SectionHeader from './commonComponents/SectionHeader';
 import { useNavigate } from 'react-router-dom';
-import { fetchDepartments } from '../../../app/features/departments/departmentThunks';
-import { fetchStudents } from '../../../app/features/users/userThunks';
 import { shallowEqual } from 'react-redux';
 
 export default function StudentEnrollmentSection() {
   const { themeConfig, theme } = useTheme();
   const colors = themeConfig[theme];
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   
   // For section stat cards animation on hover
   const [hoveredCard, setHoveredCard] = useState(null);
   
-  // Get data from Redux store
+  // Read data from Redux store — DashboardOverview already fetches this
   const { departments, isLoading: departmentsLoading } = useSelector(state => state.departments);
 
-const { students, loading: studentsLoading } = useSelector(
-  state => ({
-    students: state.users.students,
-    loading: state.users.loading.students
-  }),
-  shallowEqual
-);
+  const { students, loading: studentsLoading } = useSelector(
+    state => ({
+      students: state.users.students,
+      loading: state.users.loading.students
+    }),
+    shallowEqual
+  );
 
-  
   // State for processed department data
   const [departmentStats, setDepartmentStats] = useState([]);
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalNewStudents, setTotalNewStudents] = useState(0);
   const [overallGrowth, setOverallGrowth] = useState(0);
-  
-  // Fetch departments and students if not already loaded
-  useEffect(() => {
-    if (departments.length === 0 && !departmentsLoading) {
-      dispatch(fetchDepartments());
-    }
-    if (students.length === 0 && !studentsLoading) {
-      dispatch(fetchStudents());
-    }
-  }, [dispatch, departments.length, departmentsLoading, students.length, studentsLoading]);
 
   // Process students by department
   useEffect(() => {
@@ -113,6 +99,20 @@ const { students, loading: studentsLoading } = useSelector(
         />
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!departmentsLoading && !studentsLoading && departments.length === 0 && students.length === 0) {
+    return (
+      <div className="mb-10">
+        <SectionHeader 
+          title="Student Enrollment" 
+          subtitle="No department or student data available yet"
+        />
+        <div className={`${theme === 'dark' ? 'bg-[#1E2733]/30' : 'bg-white'} p-6 rounded-xl border ${theme === 'dark' ? 'border-[#1E2733]' : 'border-gray-200'}`}>
+          <p className={colors.secondaryText}>No students or departments found. Add departments and register students to populate this section.</p>
         </div>
       </div>
     );

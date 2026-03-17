@@ -89,25 +89,25 @@
     );
     const [isDepartmentsLoading, setIsDepartmentsLoading] = useState(true);
     const [departmentsError, setDepartmentsError] = useState(null);
+    const hasDepartments = Array.isArray(departments) && departments.length > 0;
 
     useEffect(() => {
       if (!departments || departments.length === 0) {
-        setIsDepartmentsLoading(true);
-        dispatch(getDepartments())
-          .unwrap()
-          .then((result) => {
-            console.log("Departments fetched successfully:", result);
+          setIsDepartmentsLoading(true);
+          dispatch(getDepartments()).then((action) => {
             setIsDepartmentsLoading(false);
-          })
-          .catch((error) => {
-            console.error("Error fetching departments:", error);
-            setDepartmentsError(error.message || "Failed to load departments");
-            setIsDepartmentsLoading(false);
-    
-            toast.error("Failed to load departments data. Please try again later.", {
-              position: "top-right",
-              autoClose: 5000,
-            });
+            const result = action.payload || [];
+            console.log('Departments fetch action:', action);
+            if (action.error) {
+              setDepartmentsError(action.error.message || 'Failed to load departments');
+              toast.error('Failed to load departments data. Please try again later.', {
+                position: 'top-right',
+                autoClose: 5000,
+              });
+            } else {
+              // successful (maybe empty)
+              setDepartmentsError(null);
+            }
           });
       } else {
         // Departments already exist, no need to fetch again
@@ -205,6 +205,14 @@
     // Validate a single field
     const validateField = (name, value) => {
       try {
+        if (!hasDepartments && (name === 'group' || name === 'department')) {
+          setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors[name];
+            return newErrors;
+          });
+          return true;
+        }
         if (name.includes('.')) {
           // Handle nested fields (address)
           const [parent, child] = name.split('.');
@@ -342,7 +350,16 @@
               const studentSpecificSchema = z.object({
                 rollNumber: z.string().min(1, 'Roll number is required'),
                 admissionYear: z.string().min(4, 'Please enter a valid admission year'),
-                group: z.string().min(1, 'Group is required'),
+                group: z.string().optional(),
+                department: z.string().optional(),
+              }).superRefine((data, ctx) => {
+                if (hasDepartments && !data.group) {
+                  ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['group'],
+                    message: 'Group is required'
+                  });
+                }
               });
               
               studentSpecificSchema.parse(formData);
@@ -372,7 +389,22 @@
     const validateForm = () => {
       try {
         // Choose schema based on role
-        const schema = role === 'student' ? studentSchema : teacherSchema;
+        const schema = role === 'student'
+          ? baseUserSchema.extend({
+              rollNumber: z.string().min(1, 'Roll number is required'),
+              admissionYear: z.string().min(4, 'Please enter a valid admission year'),
+              group: z.string().optional(),
+              department: z.string().optional(),
+            }).superRefine((data, ctx) => {
+              if (hasDepartments && !data.group) {
+                ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  path: ['group'],
+                  message: 'Group is required'
+                });
+              }
+            })
+          : teacherSchema;
         
         // Add refine for password confirmation
         const fullSchema = schema.refine(data => data.confirmPassword === data.password, {
@@ -381,6 +413,25 @@
         });
         
         fullSchema.parse(formData);
+
+        if (!profileImage) {
+          setErrors(prev => ({ ...prev, profileImage: 'Profile image is required' }));
+          toast.error('Please capture your profile image before submitting', {
+            position: 'top-right',
+            autoClose: 3000,
+          });
+          return false;
+        }
+
+        if (!faceEmbedding || !Array.isArray(faceEmbedding) || faceEmbedding.length === 0) {
+          setErrors(prev => ({ ...prev, faceEmbedding: 'Face embedding is required' }));
+          toast.error('Face not detected. Please capture a clear face photo before submitting', {
+            position: 'top-right',
+            autoClose: 3000,
+          });
+          return false;
+        }
+
         return true;
       } catch (error) {
         // Process and set all validation errors
@@ -429,6 +480,11 @@
         const file = e.target.files[0];
         setProfileImage(file);
         setProfileImagePreview(URL.createObjectURL(file));
+        setErrors(prev => {
+          const next = { ...prev };
+          delete next.profileImage;
+          return next;
+        });
       }
     };
 
@@ -437,6 +493,14 @@
       setProfileImage(imageFile);
       setProfileImagePreview(imageFile ? URL.createObjectURL(imageFile) : null);
       setFaceEmbedding(embedding);
+      if (imageFile && embedding?.length) {
+        setErrors(prev => {
+          const next = { ...prev };
+          delete next.profileImage;
+          delete next.faceEmbedding;
+          return next;
+        });
+      }
     };
 
     const handleRoleSelect = (selectedRole) => {
@@ -446,12 +510,12 @@
       // Pre-fetch departments if not already loaded when role is selected
       if ((!departments || departments.length === 0) && !isDepartmentsLoading) {
         setIsDepartmentsLoading(true);
-        dispatch(getDepartments())
-          .then(() => setIsDepartmentsLoading(false))
-          .catch(() => {
-            setIsDepartmentsLoading(false);
-            toast.error("Failed to load departments data. Please try again later.");
-          });
+        dispatch(getDepartments()).then((action) => {
+          setIsDepartmentsLoading(false);
+          if (action.error) {
+            toast.error('Failed to load departments data. Please try again later.');
+          }
+        });
       }
       
       setStep(1);
@@ -474,15 +538,14 @@
           if (!isDepartmentsLoading) {
             // If not currently loading, try fetching again
             setIsDepartmentsLoading(true);
-            dispatch(getDepartments())
-              .then(() => {
-                setIsDepartmentsLoading(false);
+            dispatch(getDepartments()).then((action) => {
+              setIsDepartmentsLoading(false);
+              if (action.error) {
+                toast.error('Failed to load departments data. Please try again later.');
+              } else {
                 setStep(prevStep => prevStep + 1);
-              })
-              .catch(() => {
-                setIsDepartmentsLoading(false);
-                toast.error("Failed to load departments data. Please try again later.");
-              });
+              }
+            });
             return;
           }
           // If already loading, just show a toast

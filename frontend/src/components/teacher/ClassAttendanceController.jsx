@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   Calendar,
   FileText,
-  Activity
+  Activity,
+  Download
 } from 'lucide-react'
 import { useTheme } from '../../context/ThemeProvider';
 
@@ -51,15 +52,77 @@ export default function ClassAttendanceController({ classItem }) {
     }
   }, [dispatch, classItem]);
 //   console.log(classAttendance);
-  const fetchAttendance = () =>{
-    dispatch(getClassAttendance(classItem._id))
-    setTimeout(() => {
-        fetchAttendance();
-    }, 15000);
-  }
-  useEffect(()=>{
+  useEffect(() => {
+    if (!classItem?._id) return;
+
+    const fetchAttendance = () => dispatch(getClassAttendance(classItem._id));
     fetchAttendance();
-  },[])
+
+    const intervalId = setInterval(fetchAttendance, 15000);
+    return () => clearInterval(intervalId);
+  }, [dispatch, classItem?._id]);
+
+  const exportAttendanceCsv = () => {
+    const rows = classAttendance?.attendance || [];
+    if (!rows.length) {
+      setNotification({
+        show: true,
+        type: 'error',
+        message: 'No attendance records available to export.'
+      });
+      setTimeout(() => setNotification({ show: false, type: '', message: '' }), 2500);
+      return;
+    }
+
+    const headers = [
+      'Student Name',
+      'Roll Number',
+      'Email',
+      'Status',
+      'Marked At',
+      'Marked By',
+      'Notes'
+    ];
+
+    const escapeCsv = (value) => {
+      const text = value === undefined || value === null ? '' : String(value);
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const csvRows = rows.map((item) => {
+      const studentName = `${item?.student?.firstName || ''} ${item?.student?.lastName || ''}`.trim();
+      const rollNumber = item?.student?.rollNumber || '';
+      const email = item?.student?.email || '';
+      const status = item?.attendance?.status || 'not_marked';
+      const markedAt = item?.attendance?.markedAt
+        ? new Date(item.attendance.markedAt).toLocaleString()
+        : '';
+      const markedBy = item?.attendance?.markedBy?.firstName
+        ? `${item.attendance.markedBy.firstName} ${item.attendance.markedBy.lastName || ''}`.trim()
+        : '';
+      const notes = item?.attendance?.notes || '';
+
+      return [studentName, rollNumber, email, status, markedAt, markedBy, notes]
+        .map(escapeCsv)
+        .join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const today = new Date().toISOString().split('T')[0];
+    const classTitle = (classItem?.title || 'class').replace(/\s+/g, '-').toLowerCase();
+    const fileName = `attendance-${classTitle}-${today}.csv`;
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Handle success/error notifications
   useEffect(() => {
@@ -366,8 +429,21 @@ export default function ClassAttendanceController({ classItem }) {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h4 className={`font-medium ${themeConfig[theme].text}`}>Attendance Summary</h4>
-              <div className={`text-sm ${themeConfig[theme].secondaryText}`}>
-                Total Students: {classAttendance?.stats?.total || 0}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={exportAttendanceCsv}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
+                    isDark
+                      ? 'bg-[#1E2733] text-white hover:bg-[#2A3744]'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <Download size={16} />
+                  Export CSV
+                </button>
+                <div className={`text-sm ${themeConfig[theme].secondaryText}`}>
+                  Total Students: {classAttendance?.stats?.total || 0}
+                </div>
               </div>
             </div>
             

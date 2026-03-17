@@ -2,7 +2,12 @@ import React from 'react';
 import { useTheme } from '../../../context/ThemeProvider';
 import { Users, Book, CalendarCheck, Clock, Bell, ArrowUpRight, Shield } from 'lucide-react';
 
-export default function HeroSection() {
+export default function HeroSection({
+  stats,
+  progress,
+  notifications = [],
+  systemStatus,
+}) {
   const { themeConfig, theme } = useTheme();
   const colors = themeConfig[theme];
   
@@ -14,20 +19,14 @@ export default function HeroSection() {
     month: 'long',
     day: 'numeric'
   });
-  
-  // Quick stats for hero section
+
+  const formatCount = (value) => new Intl.NumberFormat().format(Number(value || 0));
+
   const quickStats = [
-    { icon: <Users size={18} />, label: 'Total Students', value: '856' },
-    { icon: <Book size={18} />, label: 'Active Courses', value: '24' },
-    { icon: <CalendarCheck size={18} />, label: 'Today\'s Classes', value: '12' },
-    { icon: <Clock size={18} />, label: 'Avg. Attendance', value: '81%' },
-  ];
-  
-  // Recent notifications
-  const notifications = [
-    { type: 'attendance', message: 'Web Dev Group A attendance below 70%', time: '2h ago' },
-    { type: 'system', message: 'System maintenance scheduled for tomorrow', time: '5h ago' },
-    { type: 'course', message: 'New student enrollments for UI/UX Design', time: '1d ago' },
+    { icon: <Users size={18} />, label: 'Total Students', value: formatCount(stats?.totalStudents) },
+    { icon: <Book size={18} />, label: 'Active Courses', value: formatCount(stats?.activeCourses) },
+    { icon: <CalendarCheck size={18} />, label: 'Today\'s Classes', value: formatCount(stats?.todaysClasses) },
+    { icon: <Clock size={18} />, label: 'Avg. Attendance', value: `${Math.round(Number(stats?.averageAttendance || 0))}%` },
   ];
 
   return (
@@ -77,13 +76,16 @@ export default function HeroSection() {
             <div className={`${theme === 'dark' ? 'bg-[#1E2733]/30' : 'bg-orange-50'} p-4 rounded-lg border ${theme === 'dark' ? 'border-[#F2683C]/30' : 'border-orange-200'}`}>
               <div className="flex justify-between items-center mb-2">
                 <h3 className={`${theme === 'dark' ? 'text-orange-400' : 'text-orange-700'} text-sm font-medium`}>
-                  Student Progress
+                  {progress?.title || 'Student Progress'}
                 </h3>
                 <ArrowUpRight size={16} className={`${theme === 'dark' ? 'text-orange-400' : 'text-orange-600'}`} />
               </div>
-              <p className={`${colors.text} text-sm`}>85% of students are on track with coursework</p>
+              <p className={`${colors.text} text-sm`}>{progress?.description || 'No student progress data is available yet.'}</p>
               <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                <div className={`${theme === 'dark' ? 'bg-orange-500' : 'bg-orange-600'} h-2.5 rounded-full`} style={{ width: '85%' }}></div>
+                <div
+                  className={`${theme === 'dark' ? 'bg-orange-500' : 'bg-orange-600'} h-2.5 rounded-full`}
+                  style={{ width: `${Math.min(Math.max(Number(progress?.percent || 0), 0), 100)}%` }}
+                ></div>
               </div>
             </div>
             
@@ -91,15 +93,20 @@ export default function HeroSection() {
             <div className={`${theme === 'dark' ? 'bg-[#1E2733]/30' : 'bg-green-50'} p-4 rounded-lg border ${theme === 'dark' ? 'border-[#2F955A]/30' : 'border-green-200'}`}>
               <div className="flex justify-between items-center mb-2">
                 <h3 className={`${theme === 'dark' ? 'text-green-400' : 'text-green-700'} text-sm font-medium`}>
-                  System Status
+                  {systemStatus?.title || 'Data Sync Status'}
                 </h3>
                 <Shield size={16} className={`${theme === 'dark' ? 'text-green-400' : 'text-green-600'}`} />
               </div>
-              <p className={`${colors.text} text-sm`}>All systems operational</p>
+              <p className={`${colors.text} text-sm`}>{systemStatus?.summary || 'Dashboard data is syncing.'}</p>
               <div className="flex mt-2 gap-2">
-                <span className={`inline-flex px-2 py-1 text-xs rounded-full ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800'}`}>Database</span>
-                <span className={`inline-flex px-2 py-1 text-xs rounded-full ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800'}`}>API</span>
-                <span className={`inline-flex px-2 py-1 text-xs rounded-full ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800'}`}>Storage</span>
+                {(systemStatus?.badges?.length ? systemStatus.badges : ['Waiting for sync']).map((badge) => (
+                  <span
+                    key={badge}
+                    className={`inline-flex px-2 py-1 text-xs rounded-full ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800'}`}
+                  >
+                    {badge}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
@@ -117,7 +124,7 @@ export default function HeroSection() {
           </div>
           
           <div className="space-y-4">
-            {notifications.map((notification, index) => (
+            {(notifications.length ? notifications : [{ type: 'system', message: 'No active notifications right now.', time: 'Live' }]).map((notification, index) => (
               <div 
                 key={index} 
                 className={`p-3 rounded-lg border-l-4 ${

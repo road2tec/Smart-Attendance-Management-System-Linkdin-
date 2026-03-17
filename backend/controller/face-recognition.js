@@ -2,44 +2,84 @@
 
 const Embedding = require('../model/embedding');
 const User = require('../model/user');
+const RecognitionAttempt = require('../model/recognitionAttempt');
 
 
-const calculateCosineSimilarity = (embedding1, embedding2) => {
+// face-api.js descriptors must be compared using Euclidean distance, NOT cosine similarity.
+// Cosine similarity stays high (~0.9+) even for completely different people's faces,
+// which allows any face (or a celebrity photo) to pass verification.
+// Euclidean distance: 0 = identical, higher = more different.
+// Typical threshold: < 0.5 = same person, >= 0.5 = different person.
+const calculateEuclideanDistance = (embedding1, embedding2) => {
   if (embedding1.length !== embedding2.length) {
     throw new Error('Embedding vectors must have the same length');
   }
 
-  // Calculate dot product
-  let dotProduct = 0;
-  let magnitude1 = 0;
-  let magnitude2 = 0;
-
+  let sum = 0;
   for (let i = 0; i < embedding1.length; i++) {
-    dotProduct += embedding1[i] * embedding2[i];
-    magnitude1 += embedding1[i] * embedding1[i];
-    magnitude2 += embedding2[i] * embedding2[i];
+    const diff = embedding1[i] - embedding2[i];
+    sum += diff * diff;
   }
 
-  magnitude1 = Math.sqrt(magnitude1);
-  magnitude2 = Math.sqrt(magnitude2);
+  return Math.sqrt(sum);
+};
 
-  // Avoid division by zero
-  if (magnitude1 === 0 || magnitude2 === 0) {
-    return 0;
+const parseEmbeddingInput = (embeddingInput) => {
+  if (Array.isArray(embeddingInput)) {
+    return embeddingInput;
   }
+  if (typeof embeddingInput === 'string') {
+    return JSON.parse(embeddingInput);
+  }
+  return null;
+};
 
-  return dotProduct / (magnitude1 * magnitude2);
+const getClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (Array.isArray(forwarded)) {
+    return forwarded[0] || '';
+  }
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip || req.connection?.remoteAddress || '';
+};
+
+const logRecognitionAttempt = async (req, payload) => {
+  try {
+    await RecognitionAttempt.create({
+      endpoint: 'find-closest-match',
+      source: req.body?.source || 'web-client',
+      resultType: payload.resultType,
+      similarity: payload.similarity ?? null,
+      threshold: payload.threshold ?? null,
+      matchedUser: payload.matchedUser || null,
+      classroom: req.body?.classroomId || null,
+      class: req.body?.classId || null,
+      embeddingLength: payload.embeddingLength || 0,
+      note: payload.note || '',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers['user-agent'] || '',
+    });
+  } catch (attemptError) {
+    console.error('Failed to log recognition attempt:', attemptError.message);
+  }
 };
 
 const embeddingController = {
   
   findClosestMatch: async (req, res) => {
     try {
-      let { embedding } = req.body;
-      embedding = JSON.parse(embedding);
+      const { embedding: embeddingInput } = req.body;
+      const embedding = parseEmbeddingInput(embeddingInput);
     //   console.log(embedding)
       // Validate request
       if (!embedding || !Array.isArray(embedding)) {
+        await logRecognitionAttempt(req, {
+          resultType: 'error',
+          note: 'Invalid embedding payload',
+          embeddingLength: 0,
+        });
         return res.status(400).json({ 
           success: false, 
           message: 'Invalid embedding. Must provide an array of numbers.' 
@@ -51,52 +91,77 @@ const embeddingController = {
         .populate('user', 'firstName lastName email role profileImage group rollNumber mobile permanentAddress currentAddress');
 
       if (allEmbeddings.length === 0) {
+        await logRecognitionAttempt(req, {
+          resultType: 'error',
+          note: 'No active embeddings found',
+          embeddingLength: embedding.length,
+        });
         return res.status(404).json({ 
           success: false, 
           message: 'No embeddings found in the database.' 
         });
       }
 
-      // Calculate similarity for each stored embedding
+      // Calculate Euclidean distance for each stored embedding (lower = more similar)
       const similarities = allEmbeddings.map(storedEmbedding => {
-        const similarity = calculateCosineSimilarity(embedding, storedEmbedding.embedding);
+        const distance = calculateEuclideanDistance(embedding, storedEmbedding.embedding);
         return {
           embeddingId: storedEmbedding._id,
           userId: storedEmbedding.user._id,
           user: storedEmbedding.user,
-          similarity
+          distance
         };
       });
 
-      // Sort by similarity (highest first)
-      similarities.sort((a, b) => b.similarity - a.similarity);
-      
+      // Sort by distance ascending (lowest distance = best match)
+      similarities.sort((a, b) => a.distance - b.distance);
+
       // Get the top match
       const bestMatch = similarities[0];
-      
-      // Configure threshold as needed for your application
-      const SIMILARITY_THRESHOLD = 0.95;
-      
-      if (bestMatch.similarity < SIMILARITY_THRESHOLD) {
-        console.log(bestMatch.similarity)
+
+      // Strict threshold: face-api.js distance < 0.45 = same person, >= 0.45 = different person
+      const DISTANCE_THRESHOLD = 0.45;
+
+      if (bestMatch.distance >= DISTANCE_THRESHOLD) {
+        console.log('Best match distance:', bestMatch.distance, '(rejected - above threshold)');
+        await logRecognitionAttempt(req, {
+          resultType: 'unknown',
+          similarity: bestMatch.distance,
+          threshold: DISTANCE_THRESHOLD,
+          embeddingLength: embedding.length,
+          note: 'Above distance threshold - face does not match any registered student',
+        });
         return res.status(404).json({
           success: false,
-          message: 'No matching user found with sufficient confidence.',
-          similarity: bestMatch.similarity
+          message: 'No matching user found. Please ensure you are registered and try again.',
+          distance: bestMatch.distance
         });
       }
 
       // Return the best match
+      console.log('Face matched:', bestMatch.user?.firstName, bestMatch.user?.lastName, '| distance:', bestMatch.distance);
+      await logRecognitionAttempt(req, {
+        resultType: 'matched',
+        similarity: bestMatch.distance,
+        threshold: DISTANCE_THRESHOLD,
+        matchedUser: bestMatch.user?._id,
+        embeddingLength: embedding.length,
+      });
       return res.status(200).json({
         success: true,
         match: {
           user: bestMatch.user,
-          similarity: bestMatch.similarity,
+          distance: bestMatch.distance,
           embeddingId: bestMatch.embeddingId
         }
       });
     } catch (error) {
       console.error('Error finding closest embedding match:', error);
+        await logRecognitionAttempt(req, {
+          resultType: 'error',
+          note: error.message,
+          embeddingLength: 0,
+        });
       return res.status(500).json({
         success: false,
         message: 'Internal server error',

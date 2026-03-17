@@ -94,11 +94,9 @@
             state.token = null;
           }
         })
-        .addCase(getDepartments.fulfilled, (state, action)=>{
-          if(action.payload)
-          {
-            state.departments = action.payload;
-          }
+        .addCase(getDepartments.fulfilled, (state, action) => {
+          // Ensure departments is always an array (empty when none or on errors)
+          state.departments = action.payload || [];
         })
         .addCase(getCurrentUser.rejected, (state) => {
           state.isLoading = false;

@@ -18,7 +18,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
             name="courseName"
             value={formData.courseName}
             onChange={handleInputChange}
-            className={`w-full p-2 rounded-md bg-gray-800 border border-gray-700 ${colors.text}`}
+            className={`w-full p-2 rounded-md ${colors.input}`}
             required
           />
         </div>
@@ -30,7 +30,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
             name="courseCode"
             value={formData.courseCode}
             onChange={handleInputChange}
-            className={`w-full p-2 rounded-md bg-gray-800 border border-gray-700 ${colors.text}`}
+            className={`w-full p-2 rounded-md ${colors.input}`}
             required
           />
         </div>
@@ -41,7 +41,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
             name="courseDescription"
             value={formData.courseDescription}
             onChange={handleInputChange}
-            className={`w-full p-2 rounded-md bg-gray-800 border border-gray-700 ${colors.text}`}
+            className={`w-full p-2 rounded-md ${colors.input}`}
             rows="3"
             required
           />
@@ -53,7 +53,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
             name="courseCoordinator"
             value={formData.courseCoordinator || ''}
             onChange={handleInputChange}
-            className={`w-full p-2 rounded-md bg-gray-800 border border-gray-700 ${colors.text}`}
+            className={`w-full p-2 rounded-md ${colors.select}`}
           >
             <option className='text-white' value="">Select Coordinator (Optional)</option>
             {teachers && teachers.map(teacher => (
@@ -70,7 +70,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
             name="department"
             value={formData.department || ''}
             onChange={handleInputChange}
-            className={`w-full p-2 rounded-md bg-gray-800 border border-gray-700 ${colors.text}`}
+            className={`w-full p-2 rounded-md ${colors.select}`}
             // required
           >
             <option value="">Select Department</option>
@@ -89,7 +89,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
             name="academicYear"
             value={formData.academicYear}
             onChange={handleInputChange}
-            className={`w-full p-2 rounded-md bg-gray-800 border border-gray-700 ${colors.text}`}
+            className={`w-full p-2 rounded-md ${colors.input}`}
             required
             placeholder="e.g. 2024-2025"
           />
@@ -101,7 +101,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
             name="semester"
             value={formData.semester}
             onChange={handleInputChange}
-            className={`w-full p-2 rounded-md bg-gray-800 border border-gray-700 ${colors.text}`}
+            className={`w-full p-2 rounded-md ${colors.select}`}
             required
           >
             <option value="">Select Semester</option>
@@ -118,7 +118,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
             name="credits"
             value={formData.credits}
             onChange={handleInputChange}
-            className={`w-full p-2 rounded-md bg-gray-800 border border-gray-700 ${colors.text}`}
+            className={`w-full p-2 rounded-md ${colors.input}`}
             min="1"
             required
           />
@@ -131,7 +131,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
             name="maxCapacity"
             value={formData.maxCapacity}
             onChange={handleInputChange}
-            className={`w-full p-2 rounded-md bg-gray-800 border border-gray-700 ${colors.text}`}
+            className={`w-full p-2 rounded-md ${colors.input}`}
             min="1"
             required
           />
@@ -152,7 +152,7 @@ const CourseForm = ({ formData, handleInputChange, onSubmit, onCancel, colors, i
       <div className="flex justify-end mt-4">
         <button
           type="button"
-          className="py-2 px-4 rounded-lg bg-gray-700 text-white hover:bg-gray-600 mr-2"
+          className={`py-2 px-4 rounded-lg ${colors.button.secondary} mr-2`}
           onClick={onCancel}
         >
           Cancel

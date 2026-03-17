@@ -1,14 +1,14 @@
 import React from "react";
 import { useTheme } from "../../../context/ThemeProvider";
-import { Settings, User, Bell, Shield, Clock, Database, Palette, Globe, Eye, Lock, Server, Download, Upload, Activity } from 'lucide-react';
+import { Settings, User, Bell, Shield, Clock, Database, Globe, Eye, Lock, Server, Download, Upload, Activity, Mail } from 'lucide-react';
 
 export default function SettingsSidebar({ activeTab, setActiveTab, colors }) {
     const tabs = [
       { id: 'general', label: 'General Settings', icon: <Settings size={18} /> },
       { id: 'account', label: 'Admin Accounts', icon: <User size={18} /> },
       { id: 'notifications', label: 'Notifications', icon: <Bell size={18} /> },
+      { id: 'email', label: 'Email Management', icon: <Mail size={18} /> },
       { id: 'security', label: 'Privacy & Security', icon: <Shield size={18} /> },
-      { id: 'appearance', label: 'Appearance', icon: <Palette size={18} /> },
       { id: 'integration', label: 'Integrations', icon: <Globe size={18} /> },
       { id: 'backup', label: 'Backup & Restore', icon: <Database size={18} /> },
       { id: 'system', label: 'System Status', icon: <Server size={18} /> },

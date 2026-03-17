@@ -3,7 +3,7 @@ import { PlusCircle } from "lucide-react";
 import ClassroomCard from './ClassroomCard';
 import { useTheme } from "../../context/ThemeProvider";
 
-export default function ClassroomList({ classrooms, onSelect }) {
+export default function ClassroomList({ classrooms, onSelect, onNewClass }) {
   const { isDark, themeConfig } = useTheme();
   console.log(classrooms);
   
@@ -17,7 +17,9 @@ export default function ClassroomList({ classrooms, onSelect }) {
         }`}>
           Your Teaching Schedule
         </h2>
-        <button className={`
+        <button 
+          onClick={onNewClass}
+          className={`
           ${isDark 
             ? themeConfig.dark.button.primary
             : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-md'

@@ -34,6 +34,7 @@ const AttendanceComponent = ({
   const [username, setUsername] = useState(''); // To display personalized messages
   const [autoCloseTimeout, setAutoCloseTimeout] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [detectionProgress, setDetectionProgress] = useState(0); // 0-100 for face lock-on progress
   
   // References
   const videoRef = useRef(null);
@@ -144,28 +145,29 @@ const AttendanceComponent = ({
     }
   };
 
-  const detectFace = async () => {
+  // Number of consecutive frames required before submitting. At ~300ms per frame this is ~2.4 seconds.
+  // This prevents instant capture from a held-up photo and gives the user visual feedback.
+  const REQUIRED_FRAMES = 8;
+
+  const detectFace = async (frameCount = 0) => {
     if (!videoRef.current || !canvasRef.current) {
       return;
     }
-    
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
     // Check if video is ready
     if (video.readyState !== 4) {
-      // Try again in a short moment
-      setTimeout(() => detectFace(), 100);
+      setTimeout(() => detectFace(frameCount), 100);
       return;
     }
 
     try {
-      setStep('processing');
-      
       const displaySize = { width: video.videoWidth, height: video.videoHeight };
       faceapi.matchDimensions(canvas, displaySize);
 
-      console.log('[FaceAPI] Detecting face...');
+      console.log(`[FaceAPI] Detecting face (frame ${frameCount + 1}/${REQUIRED_FRAMES})...`);
       const detections = await faceapi
         .detectAllFaces(video)
         .withFaceLandmarks()
@@ -174,27 +176,37 @@ const AttendanceComponent = ({
       // Clear previous drawings
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
+
       if (detections.length === 0) {
-        console.log('[FaceAPI] No face detected, trying again');
-        setTimeout(() => detectFace(), 500);
+        // Face lost - reset progress
+        if (frameCount > 0) {
+          console.log('[FaceAPI] Face lost, resetting progress');
+          setDetectionProgress(0);
+        }
+        setTimeout(() => detectFace(0), 500);
         return;
       }
-      
-      // We have detections - draw them
+
+      // Face detected - draw overlays
       const resizedDetections = faceapi.resizeResults(detections, displaySize);
       faceapi.draw.drawDetections(canvas, resizedDetections);
       faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
-      
-      // Get the face descriptor data
-      const faceDescriptor = resizedDetections[0].descriptor;
-      const descriptorArray = Array.from(faceDescriptor);
-      
-      console.log('[FaceAPI] Face detected and descriptor extracted');
-      
-      // Process this embedding immediately
-      processFaceEmbedding(descriptorArray);
-      
+
+      // Increment frame count and update progress bar
+      const newFrameCount = frameCount + 1;
+      setDetectionProgress(Math.floor((newFrameCount / REQUIRED_FRAMES) * 100));
+
+      if (newFrameCount >= REQUIRED_FRAMES) {
+        // Enough stable frames captured - extract descriptor and verify
+        const faceDescriptor = resizedDetections[0].descriptor;
+        const descriptorArray = Array.from(faceDescriptor);
+        console.log('[FaceAPI] Face lock-on complete, submitting for verification');
+        processFaceEmbedding(descriptorArray);
+      } else {
+        // Keep scanning
+        setTimeout(() => detectFace(newFrameCount), 300);
+      }
+
     } catch (error) {
       console.error('[FaceAPI] Error detecting face:', error);
       setErrorMsg('Error detecting face. Please try again.');
@@ -204,6 +216,7 @@ const AttendanceComponent = ({
 
   const processFaceEmbedding = async (embeddingData) => {
     console.log('[FaceAPI] Processing face data');
+    setStep('processing');
     setIsLoading(true);
     
     try {
@@ -301,6 +314,7 @@ const AttendanceComponent = ({
     setStep('initial');
     setErrorMsg('');
     setIsLoading(false);
+    setDetectionProgress(0);
     
     // Clear any auto-close timeouts
     if (autoCloseTimeout) {
@@ -397,26 +411,42 @@ const AttendanceComponent = ({
           {step === 'camera' && (
             <div className="text-center">
               <div className="relative w-full h-64 bg-black rounded-lg overflow-hidden">
-                <video 
-                  ref={videoRef} 
-                  className="absolute inset-0 w-full h-full object-cover" 
-                  autoPlay 
+                <video
+                  ref={videoRef}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  autoPlay
                   playsInline
                   muted
                 />
-                <canvas 
-                  ref={canvasRef} 
-                  className="absolute inset-0 w-full h-full object-cover" 
+                <canvas
+                  ref={canvasRef}
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-70 transition-opacity">
                   <div className={`p-3 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-                    <p>Show us that beautiful face!</p>
+                    <p>{detectionProgress === 0 ? 'Show us that beautiful face!' : 'Hold still...'}</p>
                   </div>
                 </div>
               </div>
-              <p className="mt-3 text-sm">
-                Looking for your face... stay still!
-              </p>
+
+              {/* Lock-on progress bar */}
+              <div className="mt-3">
+                <div className={`flex justify-between text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <span>{detectionProgress === 0 ? 'Looking for your face...' : 'Locking on...'}</span>
+                  <span>{detectionProgress}%</span>
+                </div>
+                <div className={`w-full h-2 rounded-full ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      detectionProgress === 100 ? 'bg-green-500' : 'bg-blue-500'
+                    }`}
+                    style={{ width: `${detectionProgress}%` }}
+                  />
+                </div>
+                <p className={`mt-1 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Stay still — scanning face for a moment to confirm it's you!
+                </p>
+              </div>
             </div>
           )}
 
