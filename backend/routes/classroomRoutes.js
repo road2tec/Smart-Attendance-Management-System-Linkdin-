@@ -11,7 +11,7 @@ const upload = require('./../utils/multerConfig')
 router.post(
   '/',
   authMiddleware,
-  authorizeRoles(['admin', 'department_head']),
+  authorizeRoles(['admin', 'department_head', 'teacher']),
   classroomController.createClassroom
 );
 
@@ -62,28 +62,28 @@ router.get(
 router.put(
   '/:id',
   authMiddleware,
-  authorizeRoles(['admin', 'department_head']),
+  authorizeRoles(['admin', 'department_head', 'teacher']),
   classroomController.updateClassroom
 );
 
 router.patch(
   '/:id/teacher',
   authMiddleware,
-  authorizeRoles(['admin', 'department_head']),
+  authorizeRoles(['admin', 'department_head', 'teacher']),
   classroomController.updateTeacher
 );
 
 router.patch(
   '/:id/group',
   authMiddleware,
-  authorizeRoles(['admin', 'department_head']),
+  authorizeRoles(['admin', 'department_head', 'teacher']),
   classroomController.updateGroup
 );
 
 router.patch(
   '/:id/course',
   authMiddleware,
-  authorizeRoles(['admin', 'department_head']),
+  authorizeRoles(['admin', 'department_head', 'teacher']),
   classroomController.updateCourse
 );
 
@@ -91,7 +91,7 @@ router.patch(
 router.delete(
   '/:id',
   authMiddleware,
-  authorizeRoles(['admin', 'department_head']),
+  authorizeRoles(['admin', 'department_head', 'teacher']),
   classroomController.deleteClassroom
 );
 router.post('/:id/upload-material', upload.array('files', 10),authMiddleware, classroomController.uploadResource);

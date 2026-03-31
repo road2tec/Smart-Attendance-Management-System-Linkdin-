@@ -17,6 +17,47 @@ const AnnouncementSchema = new Schema({
   }
 });
 
+const QuestionSchema = new Schema({
+    id: { type: String, required: true },
+    text: { type: String, required: true },
+    type: { type: String, enum: ['MCQ', 'subjective', 'true-false'], default: 'subjective' },
+    options: [String], // Only for MCQ
+    correctAnswer: String, // Correct index for MCQ or key string
+    marks: { type: Number, default: 10 }
+});
+
+const AssessmentSchema = new Schema({
+    title: {
+        type: String,
+        required: true
+    },
+    type: {
+        type: String,
+        enum: ['Quiz', 'Assignment', 'Exam', 'Internal', 'External', 'Practical'],
+        default: 'Quiz'
+    },
+    date: {
+        type: Date,
+        default: Date.now
+    },
+    dueDate: {
+        type: Date,
+        default: Date.now
+    },
+    description: String,
+    instructions: String,
+    totalMarks: {
+        type: Number,
+        default: 100
+    },
+    questions: [QuestionSchema],
+    status: {
+        type: String,
+        enum: ['draft', 'published', 'concluded'],
+        default: 'published'
+    }
+});
+
 const ClassroomSchema = new Schema({
   department: {
     type: Schema.Types.ObjectId,
@@ -70,24 +111,39 @@ const ClassroomSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'Resource'
   }],
-  announcements: [AnnouncementSchema]
+  announcements: [AnnouncementSchema],
+  assessments: [AssessmentSchema],
 }, {
   timestamps: true
 });
 
 // Check if attendance window is open for a specific class
-ClassroomSchema.methods.isAttendanceWindowOpen = function(classId) {
+ClassroomSchema.methods.isAttendanceWindowOpen = function(classId, classObj = null) {
   const classEntry = this.classes.find(c => c.class._id.toString() === classId.toString());
-  console.log("in classroom controller: class entry: ", classEntry);
+  
   if (!classEntry || !classEntry.attendanceWindow || !classEntry.attendanceWindow.isOpen) return false;
 
   const now = new Date();
+  
+  // 1. Check the manual window closure time
   const { openedAt, closesAt } = classEntry.attendanceWindow;
+  if (closesAt && now > closesAt) return false;
+  if (openedAt && now < openedAt) return false;
 
-  // If no closesAt is specified, window remains open indefinitely
-  if (!closesAt) return true;
+  // 2. [New Requirement] Check if the actual scheduled class period has ended
+  if (classObj && classObj.schedule && classObj.schedule.endTime) {
+    const [endHours, endMinutes] = classObj.schedule.endTime.split(':').map(Number);
+    const scheduledEnd = new Date(now);
+    scheduledEnd.setHours(endHours, endMinutes, 0, 0);
 
-  return now >= openedAt && now <= closesAt;
+    // If it's currently past the scheduled end time (with a tiny 1-minute buffer for sync)
+    if (now > new Date(scheduledEnd.getTime() + 60000)) {
+        console.log(`[Strict Time Lock] Attendance rejected. Current: ${now.toLocaleTimeString()}, Scheduled End: ${scheduledEnd.toLocaleTimeString()}`);
+        return false;
+    }
+  }
+
+  return true;
 };
 
 // Open attendance window for a specific class

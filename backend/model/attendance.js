@@ -37,10 +37,24 @@ const AttendanceSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'User'
   },
-  // Date and time when attendance was marked
+  // Date and time when attendance was marked (Entry Time)
   markedAt: {
     type: Date,
     default: Date.now
+  },
+  // Entry time for the session
+  entryTime: {
+    type: Date,
+    default: Date.now
+  },
+  // Exit time for the session (updated when student leaves or session ends)
+  exitTime: {
+    type: Date
+  },
+  // Total duration spent in the session (in minutes)
+  duration: {
+    type: Number,
+    default: 0
   },
   // For location-based attendance
   location: {
@@ -70,6 +84,15 @@ const AttendanceSchema = new Schema({
   faceEmbedding: {
     type: Schema.Types.ObjectId,
     ref: 'Embedding'
+  },
+  // Security Scores
+  antiSpoofScore: {
+    type: Number,
+    default: 0
+  },
+  verificationScore: {
+    type: Number,
+    default: 0
   },
   // Additional notes
   notes: {

@@ -7,14 +7,28 @@ const Course = require('../model/course');
 const Classroom = require('../model/classroom')
 const mongoose = require('mongoose')
 
+// Helper: find department by id string OR ObjectId
+const findDepartmentFlexible = async (departmentId) => {
+  try {
+    if (mongoose.Types.ObjectId.isValid(departmentId)) {
+      return await Department.findById(departmentId);
+    }
+    // Fallback: treat as a plain string _id
+    return await Department.findOne({ _id: departmentId });
+  } catch (e) {
+    // If even that fails, return null
+    return null;
+  }
+};
+
 // Create group within a department and assign department courses
 const createGroup = async (req, res) => {
   const { departmentId } = req.params;
   const { name, mentorId, maxCapacity, description } = req.body;
 
   try {
-    // Verify department exists
-    const department = await Department.findById(departmentId);
+    // Verify department exists (supports both ObjectId and custom string IDs)
+    const department = await findDepartmentFlexible(departmentId);
     if (!department) {
       return res.status(404).json({ message: 'Department not found' });
     }
@@ -30,8 +44,8 @@ const createGroup = async (req, res) => {
     // Create the group
     const group = new Group({
       name,
-      mentor: mentorId,
-      department: departmentId,
+      mentor: mentorId && mentorId !== '' ? mentorId : undefined,
+      department: department._id,
       maxCapacity: maxCapacity || 100,
       description,
       courses: [] // Initialize empty courses array
@@ -45,7 +59,7 @@ const createGroup = async (req, res) => {
     
     // Auto-assign all active courses from this department to the new group
     const departmentCourses = await Course.find({ 
-      department: departmentId,
+      department: department._id,
       isActive: true 
     });
     
@@ -67,10 +81,10 @@ const createGroup = async (req, res) => {
       message: `Group created and assigned to ${departmentCourses.length} courses from the department`
     });
   } catch (err) {
+    console.error('createGroup error:', err);
     res.status(500).json({ message: err.message });
   }
 };
-
 
 
 const assignStudent = async (req, res) => {
@@ -252,23 +266,24 @@ const getGroupsByDepartment = async (req, res) => {
 
   try {
     // Verify the department exists
-    const department = await Department.findById(departmentId);
+    const department = await findDepartmentFlexible(departmentId);
     if (!department) {
       return res.status(404).json({ message: 'Department not found' });
     }
+    const deptId = department._id;
 
     let groups;
     
     if (user.role === 'admin') {
       // Admin can see all groups in a department
-      groups = await Group.find({ department: departmentId })
+      groups = await Group.find({ department: deptId })
         .populate('students')
         .populate('mentor')
         .populate('courses');
     } else if (user.role === 'teacher') {
       // Teachers see groups they mentor in this department
       groups = await Group.find({ 
-        department: departmentId,
+        department: deptId,
         mentor: user._id 
       })
       .populate('students')
@@ -276,7 +291,7 @@ const getGroupsByDepartment = async (req, res) => {
     } else if (user.role === 'student') {
       // Students see groups they're enrolled in for this department
       groups = await Group.find({ 
-        department: departmentId,
+        department: deptId,
         students: user._id 
       })
       .populate('mentor')

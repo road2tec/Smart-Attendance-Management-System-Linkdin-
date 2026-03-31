@@ -21,6 +21,11 @@ const courseSchema = new mongoose.Schema({
         ref: 'User',
         required: false,
     },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: false,
+    },
     instructors: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'

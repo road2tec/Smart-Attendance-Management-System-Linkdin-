@@ -181,19 +181,34 @@ const classroomController = {
   getClassroomsByTeacher: async (req, res) => {
     try {
       const { teacherId } = req.params;
-      // console.log(teacherId)
-      const classrooms = await Classroom.find({ assignedTeacher: teacherId })
-        .populate('assignedStudents', 'firstName lastName email rollNumber')
+      
+      let classrooms = await Classroom.find({ assignedTeacher: teacherId })
+        .populate('assignedStudents', 'firstName lastName email rollNumber status')
         .populate('department', 'name')
         .populate('assignedTeacher', 'firstName lastName email')
-        .populate('group', 'name')
-        .populate('course', 'courseName courseCode')
+        .populate({
+          path: 'group',
+          select: 'name students',
+          populate: {
+            path: 'students',
+            select: 'firstName lastName email rollNumber status'
+          }
+        })
+        .populate('course', 'courseName courseCode title code')
         .populate('sharedResources', 'title files uploadedBy')
-        .populate('classes')
-        .populate('classes.class')
-        .sort({ name: 1 });
+        .sort({ createdAt: -1 });
 
-      return res.status(200).json(classrooms);
+      // Fallback: If assignedStudents is empty but Group has students, use those
+      const processedClassrooms = classrooms.map(cls => {
+        const clsObj = cls.toObject();
+        if ((!clsObj.assignedStudents || clsObj.assignedStudents.length === 0) && 
+            clsObj.group && clsObj.group.students && clsObj.group.students.length > 0) {
+          clsObj.assignedStudents = clsObj.group.students;
+        }
+        return clsObj;
+      });
+
+      return res.status(200).json(processedClassrooms);
     } catch (error) {
       console.error('Error getting classrooms by teacher:', error);
       return res.status(500).json({ message: 'Server error', error: error.message });
@@ -206,13 +221,25 @@ const classroomController = {
       const classrooms = await Classroom.find({ assignedStudents: studentId })
       .populate('department')
       .populate('assignedTeacher', 'firstName lastName email')
-      .populate('group')
+      .populate({
+        path: 'group',
+        populate: {
+          path: 'mentor',
+          select: 'firstName lastName email'
+        }
+      })
       .populate('course')
       .populate({
         path: 'classes.class',
         select: 'title course classroom department teacher location isExtraClass schedule'
       })
-      .populate('sharedResources')
+      .populate({
+        path: 'sharedResources',
+        populate: {
+          path: 'uploadedBy',
+          select: 'firstName lastName'
+        }
+      })
       .populate('announcements.postedBy', 'firstName lastName');
 
       console.log(classrooms)

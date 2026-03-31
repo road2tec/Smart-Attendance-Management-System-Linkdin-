@@ -11,6 +11,12 @@ router.post(
   resultController.saveClassroomResults
 );
 
+router.post(
+  '/student/submit',
+  authorizeRoles(['student', 'admin']),
+  resultController.submitStudentResult
+);
+
 router.get(
   '/teacher/me',
   authorizeRoles(['teacher', 'admin']),

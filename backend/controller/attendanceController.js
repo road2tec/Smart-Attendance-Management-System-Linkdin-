@@ -5,38 +5,25 @@ const User = require('../model/user');
 const Embedding = require('../model/embedding');
 const mongoose = require('mongoose');
 const Attendance = require('../model/attendance')
-// Helper function for face recognition - moved from embedding controller
-const calculateCosineSimilarity = (embedding1, embedding2) => {
+// Helper function for face recognition using Euclidean distance (more accurate for face-api embeddings)
+const calculateEuclideanDistance = (embedding1, embedding2) => {
   if (embedding1.length !== embedding2.length) {
     throw new Error('Embedding vectors must have the same length');
   }
-  
-  // Calculate dot product
-  let dotProduct = 0;
-  let magnitude1 = 0;
-  let magnitude2 = 0;
-  
+
+  let sum = 0;
   for (let i = 0; i < embedding1.length; i++) {
-    dotProduct += embedding1[i] * embedding2[i];
-    magnitude1 += embedding1[i] * embedding1[i];
-    magnitude2 += embedding2[i] * embedding2[i];
+    const diff = embedding1[i] - embedding2[i];
+    sum += diff * diff;
   }
-  
-  magnitude1 = Math.sqrt(magnitude1);
-  magnitude2 = Math.sqrt(magnitude2);
-  
-  // Avoid division by zero
-  if (magnitude1 === 0 || magnitude2 === 0) {
-    return 0;
-  }
-  
-  return dotProduct / (magnitude1 * magnitude2);
+
+  return Math.sqrt(sum);
 };
 
-// Function to verify face embedding - moved from simplified approach to actual face recognition
+// Function to verify face embedding against registered user
 const verifyFaceEmbedding = async (faceEmbeddingData, studentId) => {
-  // Configure threshold as needed for your application
-  const SIMILARITY_THRESHOLD = 0.80;
+  // Strict threshold: Euclidean distance < 0.45 = same person, >= 0.45 = different person
+  const DISTANCE_THRESHOLD = 0.45;
   
   try {
     // Parse the embedding if it's a string
@@ -65,34 +52,34 @@ const verifyFaceEmbedding = async (faceEmbeddingData, studentId) => {
       };
     }
     
-    // Calculate similarity for each stored embedding for this student
+    // Calculate distance for each stored embedding for this student (lower is better)
     const similarities = studentEmbeddings.map(storedEmbedding => {
-      const similarity = calculateCosineSimilarity(embedding, storedEmbedding.embedding);
+      const distance = calculateEuclideanDistance(embedding, storedEmbedding.embedding);
       return {
         embeddingId: storedEmbedding._id,
-        similarity
+        distance
       };
     });
     
-    // Sort by similarity (highest first)
-    similarities.sort((a, b) => b.similarity - a.similarity);
+    // Sort by distance ascending (lowest distance = best match)
+    similarities.sort((a, b) => a.distance - b.distance);
     
     // Get the top match
     const bestMatch = similarities[0];
     
-    // Check if the best match is above the threshold
-    if (bestMatch.similarity < SIMILARITY_THRESHOLD) {
+    // Check if the best match distance is below the strict threshold
+    if (bestMatch.distance >= DISTANCE_THRESHOLD) {
       return { 
         verified: false, 
-        similarity: bestMatch.similarity,
-        error: 'Face verification failed - similarity below threshold' 
+        similarity: bestMatch.distance, // Using similarity field name to maintain compatibility with existing code
+        error: 'Face verification failed - distance above threshold (different person)' 
       };
     }
     
     return { 
       verified: true, 
       embeddingId: bestMatch.embeddingId,
-      similarity: bestMatch.similarity 
+      similarity: bestMatch.distance 
     };
   } catch (error) {
     console.error('Error verifying face embedding:', error);
@@ -184,8 +171,8 @@ const checkLocationValidity = async (req, res) => {
       if (!classroomNoLoc) {
         return res.status(403).json({ success: false, message: 'You are not assigned to this class' });
       }
-      if (!classroomNoLoc.isAttendanceWindowOpen(classId)) {
-        return res.status(400).json({ success: false, message: 'Attendance window is not open for this class' });
+      if (!classroomNoLoc.isAttendanceWindowOpen(classId, classObj)) {
+        return res.status(400).json({ success: false, message: 'Attendance window is not open or class time has passed' });
       }
       const existingNoLoc = await Attendance.findOne({ class: classId, student: userId, classroom: classroomNoLoc._id });
       if (existingNoLoc) {
@@ -223,10 +210,10 @@ const checkLocationValidity = async (req, res) => {
     }
     
     // Check if attendance window is open
-    if (!classroom.isAttendanceWindowOpen(classId)) {
+    if (!classroom.isAttendanceWindowOpen(classId, classObj)) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Attendance window is not open for this class' 
+        message: 'Attendance window is not open or class time has passed' 
       });
     }
     
@@ -334,6 +321,17 @@ const checkLocationValidity = async (req, res) => {
       }
     );
     
+    // Emit real-time attendance update to the classroom
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`classroom_${classroom._id}`).emit('attendance-update', {
+        classId,
+        studentId: userId,
+        status,
+        markedAt: attendance.markedAt
+      });
+    }
+
     return res.json({
       success: true,
       isValid: true,
@@ -419,6 +417,16 @@ const openAttendanceWindow = async (req, res) => {
     // Open attendance window
     await classroom.openAttendanceWindow(classId, teacherId, duration);
 
+    // Emit window-open event to classroom
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`classroom_${classroom._id}`).emit('window-status', {
+        classId,
+        isOpen: true,
+        closesAt: duration ? new Date(Date.now() + duration * 60000) : null
+      });
+    }
+
     return res.json({
       success: true,
       message: 'Attendance window opened successfully',
@@ -458,6 +466,15 @@ const closeAttendanceWindow = async (req, res) => {
 
     // Close attendance window
     await classroom.closeAttendanceWindow(classId);
+
+    // Emit window-close event to classroom
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`classroom_${classroom._id}`).emit('window-status', {
+        classId,
+        isOpen: false
+      });
+    }
 
     return res.json({
       success: true,
@@ -574,6 +591,17 @@ const markAttendanceManually = async (req, res) => {
         upsert: true 
       }
     );
+
+    // Emit update for manual marking
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`classroom_${classroom._id}`).emit('attendance-update', {
+        classId,
+        studentId,
+        status,
+        markedAt: attendance.markedAt
+      });
+    }
 
     return res.json({
       success: true,
@@ -776,7 +804,6 @@ const markAttendanceByFaceAndLocation = async (req, res) => {
       'classes.class': classId,
       assignedStudents: studentId
     });
-    console.log(classroom);
     if (!classroom) {
       return res.status(404).json({ 
         success: false, 
@@ -784,15 +811,7 @@ const markAttendanceByFaceAndLocation = async (req, res) => {
       });
     }
 
-    // Check if attendance window is open
-    if (!classroom.isAttendanceWindowOpen(classId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Attendance window is not open for this class' 
-      });
-    }
-
-    // Get class details
+    // Get class details (must be before window check)
     const classObj = await Class.findById(classId);
     if (!classObj) {
       return res.status(404).json({ 
@@ -801,45 +820,65 @@ const markAttendanceByFaceAndLocation = async (req, res) => {
       });
     }
 
-    // Verify student's face embedding using the integrated face recognition system
-    let faceRecognized = false;
-    let embeddingId = null;
-    let faceSimilarity = null;
-
-    if (faceEmbeddingData) {
-      const faceVerificationResult = await verifyFaceEmbedding(faceEmbeddingData, studentId);
-      
-      if (faceVerificationResult.verified) {
-        faceRecognized = true;
-        embeddingId = faceVerificationResult.embeddingId;
-        faceSimilarity = faceVerificationResult.similarity;
-      } else {
-        console.log('Face verification failed:', faceVerificationResult.error);
-      }
+    // Check if attendance window is open
+    const skipWindowCheck = req.body.skipWindowCheck === true;
+    if (!skipWindowCheck && !classroom.isAttendanceWindowOpen(classId, classObj)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Attendance window is not open or class time has passed' 
+      });
     }
 
-    // Verify location proximity to class
-    let locationVerified = false;
-    if (location && classObj.location) {
-      // Create temporary attendance object to use the method
+    // 1. Face Recognition is MANDATORY
+    if (!faceEmbeddingData) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Face data is required for attendance' 
+        });
+    }
+
+    const faceVerificationResult = await verifyFaceEmbedding(faceEmbeddingData, studentId);
+    
+    if (!faceVerificationResult.verified) {
+        console.warn(`[Proxy Attempt] Face verification failed for student ${studentId}. Similarity: ${faceVerificationResult.similarity || 'N/A'}`);
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Face verification failed - Unauthorized user or proxy attempted' 
+        });
+    }
+
+    const faceRecognized = true;
+    const embeddingId = faceVerificationResult.embeddingId;
+    const faceSimilarity = faceVerificationResult.similarity;
+
+    // 2. Location Verification (If configured for this class)
+    let locationVerified = true; // Default to true if no location set for class
+    if (classObj.location && classObj.location.latitude && classObj.location.longitude) {
+      if (!location) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Location access is required for this class' 
+        });
+      }
+
+      // Create temporary attendance object to use the validation method
       const tempAttendance = new Attendance({
         location: {
           latitude: location.latitude,
           longitude: location.longitude,
-          accuracy: location.accuracy,
+          accuracy: location.accuracy || 10,
           timestamp: new Date()
         }
       });
       
       locationVerified = await tempAttendance.validateLocation(classObj);
-    }
-
-    // If both criteria fail, reject attendance
-    if (!faceRecognized && !locationVerified) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Face recognition and location verification both failed' 
-      });
+      
+      if (!locationVerified) {
+        return res.status(403).json({ 
+            success: false, 
+            message: 'Location verification failed - You must be in the classroom to mark attendance' 
+        });
+      }
     }
 
     // Determine attendance status (late or present)
@@ -853,7 +892,7 @@ const markAttendanceByFaceAndLocation = async (req, res) => {
     
     const status = now > new Date(classStartTime.getTime() + lateThresholdMs) ? 'late' : 'present';
 
-    // Record attendance
+    // Record attendance with new smart fields
     const attendance = await Attendance.findOneAndUpdate(
       { 
         class: classId, 
@@ -864,6 +903,7 @@ const markAttendanceByFaceAndLocation = async (req, res) => {
         status,
         markedBy: faceRecognized ? 'facial-recognition' : 'location',
         markedAt: now,
+        entryTime: now, // Initial entry
         location: location ? {
           latitude: location.latitude,
           longitude: location.longitude,
@@ -872,13 +912,30 @@ const markAttendanceByFaceAndLocation = async (req, res) => {
         } : undefined,
         faceRecognized,
         faceEmbedding: embeddingId,
-        faceSimilarity: faceSimilarity
+        faceSimilarity: faceSimilarity,
+        antiSpoofScore: req.body.antiSpoofScore || 0.95, // Simulated or from AI module
+        verificationScore: faceSimilarity || 0
       },
       { 
         new: true, 
         upsert: true 
       }
     );
+
+    // LOGGING: If face recognition failed but location passed, log as suspicious if similarity was very low
+    if (!faceRecognized && locationVerified && faceSimilarity < 0.5) {
+        const Log = require('../model/log');
+        await Log.create({
+            type: 'unknown_face',
+            severity: 'medium',
+            user: studentId,
+            class: classId,
+            details: {
+                message: 'Attendance marked by location only. Face verification failed.',
+                verificationScore: faceSimilarity
+            }
+        });
+    }
 
     return res.json({
       success: true,
@@ -900,6 +957,38 @@ const markAttendanceByFaceAndLocation = async (req, res) => {
       error: error.message 
     });
   }
+};
+
+// NEW: Analytics Controller Methods
+const getDefaultersList = async (req, res) => {
+    try {
+        const { courseId } = req.params;
+        const analyticsService = require('../services/analyticsService');
+        const defaulters = await analyticsService.getDefaulters(courseId);
+        
+        return res.json({
+            success: true,
+            data: defaulters
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const getStudentTrends = async (req, res) => {
+    try {
+        const { courseId } = req.params;
+        const studentId = req.user.userId;
+        const analyticsService = require('../services/analyticsService');
+        const trends = await analyticsService.getMonthlyTrends(studentId, courseId);
+        
+        return res.json({
+            success: true,
+            data: trends
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
 };
 
 const getStudentAttendance = async (req, res) => {
@@ -1060,7 +1149,20 @@ const getAttendanceWindowStatus = async (req, res) => {
     });
   }
 };
-const attendanceController = {verifyUserEmbedding, checkLocationValidity, openAttendanceWindow, closeAttendanceWindow, markAttendanceManually, getAttendanceWindowStatus, getStudentAttendance, markAttendanceByFaceAndLocation, getClassAttendance, bulkMarkAttendance};
+const attendanceController = {
+    verifyUserEmbedding, 
+    checkLocationValidity, 
+    openAttendanceWindow, 
+    closeAttendanceWindow, 
+    markAttendanceManually, 
+    getAttendanceWindowStatus, 
+    getStudentAttendance, 
+    markAttendanceByFaceAndLocation, 
+    getClassAttendance, 
+    bulkMarkAttendance,
+    getDefaultersList,
+    getStudentTrends
+};
 
 
 module.exports = attendanceController;

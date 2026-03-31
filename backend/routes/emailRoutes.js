@@ -8,5 +8,7 @@ router.use(authorizeRoles(['admin']));
 
 router.get('/status', emailController.getEmailConfigStatus);
 router.post('/attendance-report', emailController.sendAttendanceReport);
+router.post('/parent-report', emailController.sendParentReport);
+router.post('/bulk-6-month-report', emailController.sendBulk6MonthReports);
 
-module.exports = router;
+module.exports = router;

@@ -24,7 +24,7 @@ const roleCheck = (roles) => {
 };
 
 // Create group in a department
-router.post('/department/:departmentId/create', roleCheck(['admin']), createGroup);
+router.post('/department/:departmentId/create', roleCheck(['admin', 'teacher']), createGroup);
 
 // Get all groups for a department
 router.get('/department/:departmentId', getGroupsByDepartment);
@@ -36,18 +36,18 @@ router.post('/:groupId/assign-student', roleCheck(['admin', 'teacher']), assignS
 router.delete('/:groupId/remove-student', roleCheck(['admin', 'teacher']), removeStudent);
 
 // Assign teacher to a group
-router.post('/:groupId/assign-teacher', roleCheck(['admin']), assignTeacher);
+router.post('/:groupId/assign-teacher', roleCheck(['admin', 'teacher']), assignTeacher);
 
 // Update group
 router.put('/:id', roleCheck(['admin', 'teacher']), updateGroup);
 
 // Delete group
-router.delete('/:id', roleCheck(['admin']), deleteGroup);
+router.delete('/:id', roleCheck(['admin', 'teacher']), deleteGroup);
 
 // Get groups based on user role (admin, teacher, student)
 router.get('/', getGroups);
 
 // Get all groups (admin only)
-router.get('/all', roleCheck(['admin']), getAllGroups);
+router.get('/all', roleCheck(['admin', 'teacher']), getAllGroups);
 
 module.exports = router;

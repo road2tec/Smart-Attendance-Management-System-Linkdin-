@@ -142,6 +142,116 @@ const emailController = {
       return res.status(500).json({ message: 'Failed to send attendance report email.', error: error.message });
     }
   },
+
+  // NEW: Admin sends parent report — auto-resolves parent email from student's linkedStudent link
+  sendParentReport: async (req, res) => {
+    try {
+      if (!isMailerConfigured()) {
+        return res.status(400).json({ message: 'SMTP is not configured on the server.' });
+      }
+
+      const { studentId, range = '180d' } = req.body;
+      if (!studentId) {
+        return res.status(400).json({ message: 'studentId is required.' });
+      }
+
+      const student = await User.findById(studentId).select('firstName lastName email role');
+      if (!student || student.role !== 'student') {
+        return res.status(404).json({ message: 'Student not found.' });
+      }
+
+      // Find parent linked to this student
+      const parent = await User.findOne({ linkedStudent: studentId, role: 'parent' }).select('firstName lastName email');
+      if (!parent) {
+        return res.status(404).json({ message: 'No parent account is linked to this student. The parent must register and link their account first.' });
+      }
+
+      const { startDate, endDate } = getDateRange(range);
+      const stats = await buildStudentStats(studentId, { $gte: startDate, $lte: endDate });
+      const rangeLabel = range === '30d' ? '30-day' : range === '90d' ? '90-day' : '6-month';
+      const { html, text } = buildAttendanceEmail({ student, stats, rangeLabel });
+
+      await sendMail({
+        to: parent.email,
+        subject: `[SmartAttend] ${rangeLabel} Attendance Report — ${student.firstName} ${student.lastName}`,
+        html,
+        text,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Attendance report sent to parent (${parent.firstName} ${parent.lastName}) at ${parent.email}.`,
+        data: { student: { _id: student._id, name: `${student.firstName} ${student.lastName}` }, parent: { email: parent.email, name: `${parent.firstName} ${parent.lastName}` }, stats },
+      });
+    } catch (error) {
+      console.error('Error sending parent report:', error);
+      return res.status(500).json({ message: 'Failed to send parent attendance report.', error: error.message });
+    }
+  },
+
+  // NEW: Bulk sends 6-month reports to all parents of students with < 75% attendance
+  sendBulk6MonthReports: async (req, res) => {
+    try {
+      if (!isMailerConfigured()) {
+        return res.status(400).json({ message: 'SMTP is not configured on the server.' });
+      }
+
+      const { threshold = 75, range = '180d' } = req.body;
+      const { startDate, endDate } = getDateRange(range);
+      const rangeLabel = '6-month';
+
+      // 1. Get all active parents
+      const parents = await User.find({ role: 'parent', status: 'active' }).populate('linkedStudent');
+      
+      let sentCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
+
+      const reports = [];
+
+      // 2. Process each parent-student pair
+      for (const parent of parents) {
+        const student = parent.linkedStudent;
+        if (!student) {
+          skippedCount++;
+          continue;
+        }
+
+        const stats = await buildStudentStats(student._id, { $gte: startDate, $lte: endDate });
+        
+        // Filter by threshold if requested
+        if (Number(threshold) && Number(stats.attendancePercentage) > Number(threshold)) {
+          skippedCount++;
+          continue;
+        }
+
+        try {
+          const { html, text } = buildAttendanceEmail({ student, stats, rangeLabel });
+          await sendMail({
+            to: parent.email,
+            subject: `[AUTO] ${rangeLabel} Attendance Alert — ${student.firstName} ${student.lastName}`,
+            html,
+            text,
+          });
+          sentCount++;
+          reports.push({ student: student.firstName + ' ' + student.lastName, parent: parent.email, percentage: stats.attendancePercentage });
+        } catch (mailError) {
+          console.error(`Failed to send bulk mail to ${parent.email}:`, mailError);
+          errorCount++;
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Bulk reporting completed. Sent: ${sentCount}, Skipped: ${skippedCount}, Failed: ${errorCount}`,
+        summary: { sentCount, skippedCount, errorCount, reports }
+      });
+
+    } catch (error) {
+      console.error('Error in bulk attendance reporting:', error);
+      return res.status(500).json({ message: 'Bulk reporting failed.', error: error.message });
+    }
+  },
 };
 
-module.exports = emailController;
+module.exports = emailController;

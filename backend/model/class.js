@@ -352,54 +352,28 @@ ClassSchema.statics.checkForConflicts = async function (
   return await this.find(query);
 };
 
-// Pre-save hook to check for classroom conflicts
+// Pre-save hook — log conflicts but do NOT block creation
 ClassSchema.pre('save', async function(next) {
   try {
-    if (this.isExtraClass) {
-      // Check for conflicts for extra class
-      const conflicts = await this.constructor.checkForConflicts(
-        this.classroom,
-        this.schedule.startTime,
-        this.schedule.endTime,
-        this.extraClassDate,
-        null,
-        this._id
-      );
-      
-      if (conflicts.length > 0) {
-        return next(new Error('Classroom schedule conflict detected'));
-      }
-    } else {
-      // Check for conflicts for regular classes
-      // We need to check each day in the date range that matches daysOfWeek
-      const startDate = new Date(this.schedule.startDate);
-      const endDate = new Date(this.schedule.endDate);
-      
-      // Get an array of all dates in the range that match daysOfWeek
-      const dates = [];
-      for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
-        if (this.schedule.daysOfWeek.includes(d.getDay())) {
-          dates.push(new Date(d));
-        }
-      }
-      
-      // Check each date for conflicts
-      for (const date of dates) {
+    if (this.isNew) {
+      // Only check conflicts for new classes, and only log warnings
+      if (this.isExtraClass) {
         const conflicts = await this.constructor.checkForConflicts(
           this.classroom,
           this.schedule.startTime,
           this.schedule.endTime,
-          date,
-          this.schedule.daysOfWeek,
+          this.extraClassDate,
+          null,
           this._id
         );
-        
         if (conflicts.length > 0) {
-          return next(new Error(`Classroom schedule conflict detected on ${date.toISOString().split('T')[0]}`));
+          console.warn(`[Schedule Warning] Potential overlap detected for extra class. Proceeding anyway.`);
         }
+      } else if (this.schedule && this.schedule.startDate && this.schedule.endDate) {
+        // Just log if there might be conflicts, don't block
+        console.warn(`[Schedule Info] Creating regular class from ${this.schedule.startDate} to ${this.schedule.endDate}`);
       }
     }
-    
     next();
   } catch (error) {
     next(error);

@@ -1,4 +1,4 @@
-// controllers/courseController.js
+const mongoose = require('mongoose');
 const Course = require('../model/course');
 const User = require('../model/user');
 const Department = require('../model/department');
@@ -9,23 +9,30 @@ const createCourse = async (req, res) => {
   try {
     const { department, courseCoordinator, ...courseData } = req.body;
     
+    if (!department || !mongoose.Types.ObjectId.isValid(department)) {
+      return res.status(400).json({ error: 'Valid Department ID is required' });
+    }
+    
     // Validate department exists
     const departmentObj = await Department.findById(department);
     if (!departmentObj) {
       return res.status(404).json({ error: 'Department not found' });
     }
     
-    // Validate coordinator exists
-    const coordinatorObj = await User.findById(courseCoordinator);
-    if (!coordinatorObj) {
-      return res.status(404).json({ error: 'Course Coordinator not found' });
+    // Validate coordinator exists if provided
+    if (courseCoordinator) {
+      const coordinatorObj = await User.findById(courseCoordinator);
+      if (!coordinatorObj) {
+        return res.status(404).json({ error: 'Course Coordinator not found' });
+      }
     }
     
     // Create the new course
     const newCourse = new Course({
       ...courseData,
       department: departmentObj._id,
-      courseCoordinator: coordinatorObj._id
+      courseCoordinator: courseCoordinator || req.user.userId,
+      createdBy: req.user.userId
     });
     
     await newCourse.save();
@@ -63,15 +70,22 @@ const createCourse = async (req, res) => {
       message: `Course automatically assigned to ${groupAssignments.length} groups in the department`
     });
   } catch (err) {
-    console.log(err.message);
-    res.status(500).json({ error: err.message });
+    console.error('Course creation failure:', err);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: 'CATALOGUE CONFLICT: This Course Code is already registered in the institutional registry.' });
+    }
+    res.status(500).json({ error: err.message || 'Institutional database failure during session initialization.' });
   }
 };
 
 // Admin can view all courses
 const getAllCoursesForAdmin = async (req, res) => {
   try {
-    const courses = await Course.find().populate('department').populate('courseCoordinator').populate('instructors');
+    const courses = await Course.find()
+      .populate('department')
+      .populate('courseCoordinator')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('instructors');
     res.json(courses);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -84,13 +98,14 @@ const getCoursesForTeacher = async (req, res) => {
     const teacher = await User.findById(teacherId);
     if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
     
-    // Find courses where this teacher is either coordinator or instructor
+    // Find courses where this teacher is either the creator, coordinator, or instructor
     const courses = await Course.find({
       $or: [
+        { createdBy: teacherId },
         { courseCoordinator: teacherId },
         { instructors: teacherId }
       ]
-    }).populate('department').populate('instructors');
+    }).populate('department').populate('instructors').populate('createdBy', 'firstName lastName email');
     
     res.json(courses);
   } catch (err) {
@@ -140,7 +155,7 @@ const getCoursesForStudent = async (req, res) => {
         { 'enrolledStudents.student': studentId },
         { _id: { $in: groupCourseIds } }
       ]
-    }).populate('department');
+    }).populate('department courseCoordinator');
     
     res.json(courses);
   } catch (err) {
@@ -148,15 +163,18 @@ const getCoursesForStudent = async (req, res) => {
   }
 };
 
-// Get course by ID
+// Get Course by ID
 const getCourseById = async (req, res) => {
   try {
     const course = await Course.findById(req.params.id)
+      .populate('department')
       .populate('courseCoordinator')
       .populate('instructors')
-      .populate('department');
-      
-    if (!course) return res.status(404).json({ error: 'Course not found' });
+      .populate('enrolledStudents.student', 'firstName lastName email rollNumber');
+    
+    if (!course) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
     res.json(course);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -165,23 +183,67 @@ const getCourseById = async (req, res) => {
 
 // Assign Coordinator
 const assignCoordinator = async (req, res) => {
-  const { coordinatorId } = req.body;
   try {
-    // Verify coordinator is a teacher
-    const coordinator = await User.findById(coordinatorId);
-    if (!coordinator || coordinator.role !== 'teacher') {
-      return res.status(400).json({ error: 'Coordinator must be a teacher' });
-    }
-    
-    const updatedCourse = await Course.findByIdAndUpdate(
+    const { coordinatorId } = req.body;
+    const course = await Course.findByIdAndUpdate(
       req.params.id,
       { courseCoordinator: coordinatorId },
       { new: true }
-    );
+    ).populate('courseCoordinator department');
     
-    if (!updatedCourse) {
+    if (!course) {
       return res.status(404).json({ error: 'Course not found' });
     }
+    res.json(course);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Enroll in Course
+const enrollInCourse = async (req, res) => {
+  try {
+    const { studentId } = req.body;
+    const course = await Course.findById(req.params.id);
+    
+    if (!course) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+    
+    // Check if already enrolled
+    const isEnrolled = course.enrolledStudents.some(
+      (entry) => entry.student.toString() === studentId
+    );
+    
+    if (isEnrolled) {
+      return res.status(400).json({ error: 'Student already enrolled' });
+    }
+    
+    course.enrolledStudents.push({ student: studentId });
+    await course.save();
+    
+    const populatedCourse = await Course.findById(course._id)
+      .populate('department')
+      .populate('courseCoordinator');
+      
+    res.json(populatedCourse);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const updateCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const courseData = req.body;
+    
+    const updatedCourse = await Course.findByIdAndUpdate(
+      courseId,
+      { $set: courseData },
+      { new: true }
+    ).populate('department courseCoordinator instructors');
+    
+    if (!updatedCourse) return res.status(404).json({ error: 'Course not found' });
     
     res.json(updatedCourse);
   } catch (err) {
@@ -252,159 +314,14 @@ const removeCourseFromGroup = async (req, res) => {
   }
 };
 
-// Enroll student in course
-const enrollInCourse = async (req, res) => {
-  const courseId = req.params.id;
-  const { studentId } = req.body;
-  
-  try {
-    // Verify the course exists
-    const course = await Course.findById(courseId);
-    if (!course) {
-      return res.status(404).json({ error: 'Course not found' });
-    }
-    
-    // Verify the student exists
-    const student = await User.findById(studentId);
-    if (!student || student.role !== 'student') {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-    
-    // Check if student is already enrolled
-    const isAlreadyEnrolled = course.enrolledStudents.some(
-      (e) => e.student.toString() === studentId
-    );
-    
-    if (isAlreadyEnrolled) {
-      return res.status(400).json({ error: 'Student already enrolled in this course' });
-    }
-    
-    // Check if course is at capacity
-    if (course.enrolledStudents.length >= course.maxCapacity) {
-      return res.status(400).json({ error: 'Course is at maximum capacity' });
-    }
-    
-    // Add student to course
-    course.enrolledStudents.push({ student: studentId });
-    await course.save();
-    
-    // Add course to student's enrolledCourses
-    await User.findByIdAndUpdate(
-      studentId,
-      { $push: { enrolledCourses: { course: courseId } } }
-    );
-    
-    res.status(200).json(course);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Update course
-const updateCourse = async (req, res) => {
-  try {
-    const courseId = req.params.id;
-    const updates = req.body;
-    
-    const course = await Course.findById(courseId);
-    if (!course) {
-      return res.status(404).json({ error: 'Course not found' });
-    }
-    
-    // If department is being changed, update the department references
-    if (updates.department && updates.department !== course.department.toString()) {
-      // Remove course from old department
-      await Department.findByIdAndUpdate(
-        course.department,
-        { $pull: { courses: courseId } }
-      );
-      
-      // Add course to new department
-      await Department.findByIdAndUpdate(
-        updates.department,
-        { $push: { courses: courseId } }
-      );
-      
-      // Remove course from all groups in old department and add to all groups in new department
-      // First, remove from old department groups
-      await Group.updateMany(
-        { department: course.department },
-        { $pull: { courses: courseId } }
-      );
-      
-      // Then, add to new department groups
-      const newDepartmentGroups = await Group.find({ 
-        department: updates.department,
-        isActive: true 
-      });
-      
-      for (const group of newDepartmentGroups) {
-        group.courses.push(courseId);
-        await group.save();
-      }
-    }
-    
-    // Update the course with the new data
-    const updatedCourse = await Course.findByIdAndUpdate(
-      courseId,
-      updates,
-      { new: true }
-    ).populate('courseCoordinator').populate('department').populate('instructors');
-    
-    
-    res.status(200).json(updatedCourse);
-  } catch (err) {
-    console.log(err.message);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Delete course
-const deleteCourse = async (req, res) => {
-  try {
-    const courseId = req.params.id;
-    
-    // Find course and validate it exists
-    const course = await Course.findById(courseId);
-    if (!course) {
-      return res.status(404).json({ error: 'Course not found' });
-    }
-    
-    // Remove course from department
-    await Department.findByIdAndUpdate(
-      course.department,
-      { $pull: { courses: courseId } }
-    );
-    
-    // Remove course from any users who have it enrolled
-    await User.updateMany(
-      { 'enrolledCourses.course': courseId }, 
-      { $pull: { enrolledCourses: { course: courseId } } }
-    );
-    
-    // Remove course from all groups
-    await Group.updateMany(
-      { courses: courseId },
-      { $pull: { courses: courseId } }
-    );
-    
-    // Delete the course
-    const deletedCourse = await Course.findByIdAndDelete(courseId);
-    
-    res.status(200).json(deletedCourse);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Get courses by department
+// Get all courses by department
 const getCoursesByDepartment = async (req, res) => {
   try {
     const { departmentId } = req.params;
     
     // Verify department exists
-    const department = await Department.findById(departmentId);
-    if (!department) {
+    const departmentObj = await Department.findById(departmentId);
+    if (!departmentObj) {
       return res.status(404).json({ error: 'Department not found' });
     }
     
@@ -418,94 +335,96 @@ const getCoursesByDepartment = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-const assignTeacherToCourse = async (req, res) => {
+
+// Delete course (Admin only)
+const deleteCourse = async (req, res) => {
   try {
-    const { courseId } = req.params;
-    const { teacherId, groupId } = req.body;
+    const courseId = req.params.id;
     
-    // Validate inputs
-    if (!courseId || !teacherId || !groupId) {
-      return res.status(400).json({ message: 'Course ID, Teacher ID, and Group ID are required' });
-    }
-    
-    // Find the course
+    // Find the course first to get its department
     const course = await Course.findById(courseId);
     if (!course) {
-      return res.status(404).json({ message: 'Course not found' });
+      return res.status(404).json({ error: 'Course not found' });
     }
     
-    // Find the teacher
-    const teacher = await User.findById(teacherId);
-    if (!teacher || teacher.role !== 'teacher') {
-      return res.status(404).json({ message: 'Teacher not found' });
-    }
-    
-    // Find the group
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found' });
-    }
-    
-    // Check if teacher is already assigned to this course for this group
-    const existingAssignment = course.instructors.find(
-      instructor => instructor.toString() === teacherId
-    );
-    
-    if (!existingAssignment) {
-      // Add teacher to course instructors
-      course.instructors.push(teacherId);
-    }
-    
-    // Update teacher's teaching assignments
-    const teachingAssignment = {
-      course: courseId,
-      group: groupId
-    };
-    
-    // Check if teacher already has this assignment
-    const existingTeachingAssignment = teacher.teachingAssignments.find(
-      assignment => 
-        assignment.course.toString() === courseId &&
-        assignment.group.toString() === groupId
-    );
-    
-    if (!existingTeachingAssignment) {
-      teacher.teachingAssignments.push(teachingAssignment);
-    }
-    
-    // Save both course and teacher
-    await Promise.all([course.save(), teacher.save()]);
-    
-    // Return updated course with populated data
-    const updatedCourse = await Course.findById(courseId)
-      .populate('courseCoordinator', 'firstName lastName email')
-      .populate('instructors', 'firstName lastName email')
-      .populate('department', 'name')
-      .populate({
-        path: 'enrolledStudents.student',
-        select: 'firstName lastName email rollNumber'
+    // Remove reference from department
+    if (course.department) {
+      await Department.findByIdAndUpdate(course.department, {
+        $pull: { courses: courseId }
       });
+    }
     
-    res.status(200).json(updatedCourse);
-  } catch (error) {
-    console.error('Error assigning teacher to course:', error);
-    res.status(500).json({ message: 'Server error' });
+    // Remove reference from all groups
+    await Group.updateMany(
+      { courses: courseId },
+      { $pull: { courses: courseId } }
+    );
+    
+    // Delete the course
+    await Course.findByIdAndDelete(courseId);
+    
+    res.json({ message: 'Course deleted successfully', _id: courseId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const assignTeacherToCourse = async (req, res) => {
+  try {
+      const { courseId } = req.params;
+      const { teacherId, groupId } = req.body;
+
+      // Validate IDs
+      if (!mongoose.Types.ObjectId.isValid(courseId) || !mongoose.Types.ObjectId.isValid(teacherId)) {
+          return res.status(400).json({ error: 'Invalid course or teacher ID' });
+      }
+
+      // Find the course
+      const course = await Course.findById(courseId);
+      if (!course) {
+          return res.status(404).json({ error: 'Course not found' });
+      }
+
+      // Add teacher to instructors if not already present
+      if (!course.instructors.includes(teacherId)) {
+          course.instructors.push(teacherId);
+      }
+      
+      await course.save();
+
+      // If groupId is provided, also ensure the course is assigned to that group
+      if (groupId && mongoose.Types.ObjectId.isValid(groupId)) {
+          const group = await Group.findById(groupId);
+          if (group && !group.courses.includes(courseId)) {
+              group.courses.push(courseId);
+              await group.save();
+          }
+      }
+
+      const populatedCourse = await Course.findById(courseId)
+          .populate('department')
+          .populate('courseCoordinator')
+          .populate('instructors');
+
+      res.status(200).json(populatedCourse);
+  } catch (err) {
+      res.status(500).json({ error: err.message });
   }
 };
 
 module.exports = {
   createCourse,
-  getCoursesForStudent,
-  getCoursesForTeacher,
   getAllCoursesForAdmin,
+  getCoursesForTeacher,
+  getCoursesForStudent,
   getCourseById,
   assignCoordinator,
   enrollInCourse,
   updateCourse,
   deleteCourse,
   getCoursesByDepartment,
-  getCoursesForGroup,
   assignCourseToGroup,
   removeCourseFromGroup,
+  getCoursesForGroup,
   assignTeacherToCourse
 };

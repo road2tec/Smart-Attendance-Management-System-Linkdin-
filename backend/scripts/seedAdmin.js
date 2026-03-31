@@ -6,8 +6,8 @@ const User = require('../model/user');
 const DEFAULT_ADMIN = {
   firstName: 'Admin',
   lastName: 'User',
-  email: 'admin@mail.com',
-  password: '123456Aa',
+  email: process.env.ADMIN_EMAIL || 'admin@mail.com',
+  password: process.env.ADMIN_PASSWORD || '123456Aa',
   role: 'admin',
   mobile: '9999999999',
   permanentAddress: {

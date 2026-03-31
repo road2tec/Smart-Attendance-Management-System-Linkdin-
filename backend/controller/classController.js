@@ -13,6 +13,9 @@ const classController = {
    */
   scheduleClass: async (req, res) => {
     try {
+      console.log('--- [CHECKPOINT 1] scheduleClass Started ---');
+      console.log('Payload:', JSON.stringify(req.body, null, 2));
+
       const {
         title,
         course,
@@ -29,8 +32,11 @@ const classController = {
       } = req.body;
   
       if (!title || !course || !classroom || !teacher || !department) {
+        console.warn('[CHECKPOINT 1a] Missing required fields');
         return res.status(400).json({ message: 'Missing required fields' });
       }
+      
+      console.log('[CHECKPOINT 2] Required fields present');
   
       if (isExtraClass) {
         if (!extraClassDate || !schedule.startTime || !schedule.endTime) {
@@ -38,36 +44,34 @@ const classController = {
         }
       } else {
         const dayNameToNumber = {
-          Sunday: 0,
-          Monday: 1,
-          Tuesday: 2,
-          Wednesday: 3,
-          Thursday: 4,
-          Friday: 5,
-          Saturday: 6
+          Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6
         };
   
         if (schedule.daysOfWeek && Array.isArray(schedule.daysOfWeek)) {
           schedule.daysOfWeek = schedule.daysOfWeek.map(day => {
+            if (typeof day === 'number') return day;
             const num = dayNameToNumber[day];
-            if (num === undefined) {
-              throw new Error(`Invalid day: ${day}`);
-            }
-            return num;
-          });
+            return num !== undefined ? num : null;
+          }).filter(day => day !== null);
         }
   
         if (!schedule.startDate || !schedule.endDate || !schedule.daysOfWeek || !schedule.startTime || !schedule.endTime) {
+          console.warn('[CHECKPOINT 2a] Incomplete schedule info');
           return res.status(400).json({ message: 'Regular class requires complete schedule information' });
         }
       }
+      
+      console.log('[CHECKPOINT 3] Schedule validation passed');
   
       const classroomObj = await Classroom.findById(classroom);
       if (!classroomObj) {
+        console.error('[CHECKPOINT 3a] Classroom OBJECT not found for ID:', classroom);
         return res.status(404).json({ message: 'Classroom not found' });
       }
+      
+      console.log('[CHECKPOINT 4] Classroom object retrieved:', classroomObj._id);
   
-      const newClass = new Class({
+      const newClassData = {
         title,
         course,
         classroom,
@@ -75,8 +79,13 @@ const classController = {
         groups: groups || [],
         department,
         location: {
-          building: classroomObj.building,
-          room: classroomObj.roomNumber
+          latitude: null,
+          longitude: null,
+          address: '',
+          building: '',
+          floor: 0,
+          room: '',
+          additionalInfo: ''
         },
         schedule,
         topics: topics || [],
@@ -84,30 +93,39 @@ const classController = {
         specialRequirements: specialRequirements || '',
         isExtraClass: isExtraClass || false,
         extraClassDate: extraClassDate ? new Date(extraClassDate) : null
-      });
+      };
+
+      console.log('[CHECKPOINT 5] Initializing new Class instance');
+      const newClass = new Class(newClassData);
   
-      await newClass.save();
+      console.log('[CHECKPOINT 6] Attempting newClass.save()...');
+      const savedClass = await newClass.save();
+      console.log('[CHECKPOINT 7] newClass SAVED SUCCESS! ID:', savedClass._id);
   
-      // ✅ Push new class into Classroom.classes array
+      console.log('[CHECKPOINT 8] Linking to classroom...');
       classroomObj.classes.push({
-        class: newClass._id,
+        class: savedClass._id,
         status: 'scheduled',
         notes: notes || ''
       });
   
       await classroomObj.save();
+      console.log('[CHECKPOINT 9] classroomObj SAVED SUCCESS!');
   
       return res.status(201).json({
-        message: `Class ${isExtraClass ? 'extra session' : 'schedule'} created and linked to classroom successfully`,
-        class: newClass
+        message: `Class successfully scheduled and linked`,
+        class: savedClass
       });
   
     } catch (error) {
-      if (error.message && error.message.includes('schedule conflict')) {
+      console.error('--- [CRITICAL ERROR] scheduleClass CATCH BLOCK ---');
+      console.error('Error Details:', error);
+      console.error('Stack Trace:', error.stack);
+      
+      if (error.message && error.message.includes('conflict')) {
         return res.status(409).json({ message: error.message });
       }
-      console.error('Error scheduling class:', error);
-      return res.status(500).json({ message: 'Server error', error: error.message });
+      return res.status(500).json({ message: 'Server error during scheduling', error: error.message });
     }
   },
   

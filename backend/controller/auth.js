@@ -23,10 +23,18 @@ const login = async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
-
+        
+        // Check account status
+        if (user.status === 'pending') {
+            return res.status(403).json({ message: 'Your account is pending admin approval. Please wait for verification.' });
+        }
+        if (user.status === 'rejected') {
+            return res.status(403).json({ message: 'Your account registration has been rejected. Contact admin for details.' });
+        }
+ 
         // Generate JWT token
         const token = jwt.sign(
-            { userId: user._id, role: user.role },
+            { userId: user._id, role: user.role, status: user.status },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -61,35 +69,60 @@ const signup = async (req, res) => {
                 rollNumber,
                 admissionYear,
                 group,
-                department, // Added department ID
+                department, 
                 employeeId,
                 dateOfBirth,
                 gender,
-                faceEmbedding
+                faceEmbedding,
+                studentEmail  // For parent linking
             } = req.body;
-            // console.log(req.body);
             
-            if (!faceEmbedding) {
+            console.log('SIGNUP ATTEMPT:', { 
+              role, 
+              email, 
+              hasFile: !!req.file, 
+              hasEmbedding: !!faceEmbedding,
+              department 
+            });
+            
+            // Only require faceEmbedding for students (NOT for teachers or parents)
+            const isParent = role && role.toLowerCase() === 'parent';
+            if (!faceEmbedding && role && role.toLowerCase() !== 'teacher' && !isParent) {
                 return res.status(400).json({ message: 'Face capture is required. Please capture a clear face image and try again.' });
             }
 
-            let parsedEmbedding;
-            try {
-                parsedEmbedding = typeof faceEmbedding === 'string'
-                    ? JSON.parse(faceEmbedding)
-                    : faceEmbedding;
-            } catch (parseError) {
-                return res.status(400).json({ message: 'Invalid face embedding data. Please recapture your face and try again.' });
+            // For parent role: validate that studentEmail is provided and the student exists
+            let linkedStudentId = null;
+            if (isParent) {
+                if (!studentEmail) {
+                    return res.status(400).json({ message: 'Child college email is required for parent registration.' });
+                }
+                const linkedStudentUser = await User.findOne({ email: studentEmail, role: 'student' });
+                if (!linkedStudentUser) {
+                    return res.status(400).json({ message: 'No student found with that email address. Please verify the email and try again.' });
+                }
+                linkedStudentId = linkedStudentUser._id;
             }
 
-            if (!Array.isArray(parsedEmbedding) || parsedEmbedding.length === 0) {
-                return res.status(400).json({ message: 'Face embedding data is empty. Please recapture your face and try again.' });
+            let parsedEmbedding = null;
+            if (faceEmbedding && faceEmbedding !== 'undefined' && faceEmbedding !== 'null' && faceEmbedding !== '') {
+                try {
+                    parsedEmbedding = typeof faceEmbedding === 'string'
+                        ? JSON.parse(faceEmbedding)
+                        : faceEmbedding;
+                } catch (parseError) {
+                    return res.status(400).json({ message: 'Invalid face embedding data. Please recapture your face and try again.' });
+                }
+
+                if (!Array.isArray(parsedEmbedding) || parsedEmbedding.length === 0) {
+                    return res.status(400).json({ message: 'Face embedding data is empty. Please recapture your face and try again.' });
+                }
             }
 
             let parsedPermanentAddress = permanentAddress;
             let parsedCurrentAddress = currentAddress;
 
-            if (typeof permanentAddress === 'string') {
+            if (typeof permanentAddress === 'string' && permanentAddress.trim() !== '') {
                 try {
                     parsedPermanentAddress = JSON.parse(permanentAddress);
                 } catch (parseError) {
@@ -97,7 +130,7 @@ const signup = async (req, res) => {
                 }
             }
 
-            if (typeof currentAddress === 'string') {
+            if (typeof currentAddress === 'string' && currentAddress.trim() !== '') {
                 try {
                     parsedCurrentAddress = JSON.parse(currentAddress);
                 } catch (parseError) {
@@ -112,27 +145,26 @@ const signup = async (req, res) => {
             // Check if user already exists
             const existingUser = await User.findOne({ email });
             if (existingUser) {
-                return res.status(400).json({ message: 'User already exists' });
+                return res.status(400).json({ message: '[Auth:UserExists] User with this email already exists.' });
             }
 
             // Validate department ID if provided
             let departmentExists = null;
             let groupExists = null;
-            if (department) {
+            if (department && mongoose.Types.ObjectId.isValid(department)) {
                  departmentExists = await Department.findById(department);
                 if (!departmentExists) {
-                    return res.status(400).json({ message: 'Department not found' });
+                    return res.status(400).json({ message: '[Auth:DeptNotFound] Selected Department was not found in database.' });
                 }
+            } else if (department) {
+                return res.status(400).json({ message: '[Auth:InvalidDeptID] Invalid Department ID provided.' });
             }
 
             // Validate group ID if provided
-            if (group) {
-                if (mongoose.Types.ObjectId.isValid(group)) {
-                    groupExists = await Groups.findById(group);
-                    if (!groupExists) {
-                        return res.status(400).json({ message: 'Group not found' });
-                    }
-                
+            if (group && mongoose.Types.ObjectId.isValid(group)) {
+                groupExists = await Groups.findById(group);
+                if (!groupExists) {
+                    return res.status(400).json({ message: '[Auth:GroupNotFound] Selected Group was not found.' });
                 }
             }
 
@@ -146,36 +178,39 @@ const signup = async (req, res) => {
                 lastName,
                 email,
                 password: hashedPassword,
-                role: role ? role.toLowerCase() : "", 
-                mobile,
+                role: role ? role.toLowerCase() : undefined, 
+                mobile: mobile || undefined,
                 permanentAddress: parsedPermanentAddress, 
                 currentAddress: parsedCurrentAddress,   
                 rollNumber,
                 admissionYear,
-                department: departmentExists,
-                group: groupExists,
+                department: departmentExists ? departmentExists._id : undefined,
+                group: groupExists ? groupExists._id : undefined,
                 employeeId,
-                dateOfBirth,
-                gender: gender ? gender.toLowerCase() : "",  
+                dateOfBirth: dateOfBirth || undefined,
+                gender: gender ? gender.toLowerCase() : undefined,  
                 profileImage: req.file ? req.file.path : null,
+                status: role && role.toLowerCase() === 'teacher' ? 'pending' : 'active',
+                linkedStudent: linkedStudentId || undefined,
             });
 
             // Save the user to get an _id
             await user.save();
             
-            // Now create the embedding document with reference to the user
-            const embeddingDoc = new Embedding({
-                user: user._id,
-                embedding: parsedEmbedding,
-                isActive: true
-            });
-            
-            // Save the embedding document
-            await embeddingDoc.save();
-            
-            // Update the user with the reference to the embedding
-            user.faceEmbedding = embeddingDoc._id;
-            await user.save();
+            // Only create embedding if data was provided (mandatory for students, optional for teachers)
+            if (parsedEmbedding) {
+                const embeddingDoc = new Embedding({
+                    user: user._id,
+                    embedding: parsedEmbedding,
+                    isActive: true
+                });
+                
+                await embeddingDoc.save();
+                
+                // Update the user with the reference to the embedding
+                user.faceEmbedding = embeddingDoc._id;
+                await user.save();
+            }
             
             // If the user is a student and has been assigned to a group,
             // add them to all classrooms associated with that group
@@ -199,21 +234,29 @@ const signup = async (req, res) => {
                 }
             }
             
-            // Generate JWT token
-            const token = jwt.sign(
-                { userId: user._id, role: user.role },
-                process.env.JWT_SECRET,
-                { expiresIn: '24h' }
-            );
+            // Generate JWT token ONLY if user is active (not for pending teachers)
+            let token = null;
+            if (user.status === 'active') {
+                token = jwt.sign(
+                    { userId: user._id, role: user.role, status: user.status },
+                    process.env.JWT_SECRET,
+                    { expiresIn: '24h' }
+                );
+            }
             
             res.status(201).json({
-                message: 'User created successfully',
+                message: user.status === 'pending' 
+                    ? 'Registration successful. Your account is pending admin approval.' 
+                    : 'User created successfully',
                 token,
                 user
             });
             } catch (innerError) {
-                console.error('Signup processing error:', innerError);
-                return res.status(500).json({ message: 'Server error' });
+                console.error('SIGNUP ERROR LOG:', innerError);
+                return res.status(400).json({ 
+                  message: innerError.message || 'Registration failed',
+                  error: innerError.errors || innerError
+                });
             }
         });
 
@@ -222,129 +265,7 @@ const signup = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
-// const signup = async (req, res) => {
-//     try {
-//         upload.single('profileImage')(req, res, async (err) => {
-//             if (err) {
-//                 return res.status(400).json({ message: `Image upload failed ${err}` });
-//             }
 
-//             const {
-//                 firstName,
-//                 lastName,
-//                 email,
-//                 password,
-//                 role,
-//                 mobile,
-//                 permanentAddress,
-//                 currentAddress,
-//                 rollNumber,
-//                 admissionYear,
-//                 group,
-//                 department, // Added department ID
-//                 employeeId,
-//                 dateOfBirth,
-//                 gender,
-//                 faceEmbedding
-//             } = req.body;
-//             // console.log(req.body);
-            
-//             // Parse face embedding data
-//             const parsedEmbedding = JSON.parse(faceEmbedding);
-            
-//             if (!password) {
-//                 return res.status(400).json({ message: 'Password is required' });
-//             }
-            
-//             // Check if user already exists
-//             const existingUser = await User.findOne({ email });
-//             if (existingUser) {
-//                 return res.status(400).json({ message: 'User already exists' });
-//             }
-
-//             // Validate department ID if provided
-//             let departmentExists = null;
-//             let groupExists = null;
-//             if (department) {
-//                  departmentExists = await Department.findById(department);
-//                 if (!departmentExists) {
-//                     return res.status(400).json({ message: 'Department not found' });
-//                 }
-//             }
-
-//             // Validate group ID if provided
-//             if (group) {
-//                 if (mongoose.Types.ObjectId.isValid(group)) {
-//                     groupExists = await Groups.findById(group);
-//                     if (!groupExists) {
-//                         return res.status(400).json({ message: 'Group not found' });
-//                     }
-                
-//                 }
-//             }
-
-//             // Hash password
-//             const salt = await bcrypt.genSalt(10);
-//             const hashedPassword = await bcrypt.hash(password, salt);
-
-//             // Create new user without embedding reference first
-//             const user = new User({
-//                 firstName,
-//                 lastName,
-//                 email,
-//                 password: hashedPassword,
-//                 role: role ? role.toLowerCase() : "", 
-//                 mobile,
-//                 permanentAddress, 
-//                 currentAddress,   
-//                 rollNumber,
-//                 admissionYear,
-//                 department: departmentExists,
-//                 group: groupExists,
-//                 employeeId,
-//                 dateOfBirth,
-//                 gender: gender ? gender.toLowerCase() : "",  
-//                 profileImage: req.file ? req.file.path : null,
-//             });
-
-//             // Save the user to get an _id
-//             await user.save();
-            
-//             // Now create the embedding document with reference to the user
-//             const embeddingDoc = new Embedding({
-//                 user: user._id,
-//                 embedding: parsedEmbedding,
-//                 isActive: true
-//             });
-            
-//             // Save the embedding document
-//             await embeddingDoc.save();
-            
-//             // Update the user with the reference to the embedding
-//             user.faceEmbedding = embeddingDoc._id;
-//             await user.save();
-//             // console.log(user, embeddingDoc);
-            
-//             // Generate JWT token
-//             const token = jwt.sign(
-//                 { userId: user._id, role: user.role },
-//                 process.env.JWT_SECRET,
-//                 { expiresIn: '24h' }
-//             );
-
-
-//             res.status(201).json({
-//                 message: 'User created successfully',
-//                 token,
-//                 user
-//             });
-//         });
-
-//     } catch (error) {
-//         console.error('Signup error:', error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// };
 const me = async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -391,9 +312,7 @@ const getDepartments = async (req, res) => {
   }
 };
 
-module.exports = { getDepartments };
-
 const getGroups = async(req, res) => {
 
 }
-module.exports = { login, signup, me , getDepartments, getGroups};
+module.exports = { login, signup, me , getDepartments, getGroups};

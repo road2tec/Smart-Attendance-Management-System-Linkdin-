@@ -149,6 +149,19 @@ const resultController = {
         upsertedResults.push(saved);
       }
 
+      // Emit real-time notification to students and their parents
+      const io = req.app.get('socketio');
+      if (io) {
+        upsertedResults.forEach(resItem => {
+          const studentId = resItem.student._id || resItem.student;
+          io.to(`user_${studentId}`).emit('new-result', {
+            assessmentName,
+            classroomId,
+            type: 'graded'
+          });
+        });
+      }
+
       return res.status(200).json({
         success: true,
         message: 'Results saved successfully.',
@@ -262,9 +275,94 @@ const resultController = {
           summary: buildSummary(results),
         },
       });
-    } catch (error) {
+      } catch (error) {
       console.error('Error fetching admin results:', error);
       return res.status(500).json({ message: 'Failed to fetch results.', error: error.message });
+    }
+  },
+
+  submitStudentResult: async (req, res) => {
+    try {
+      const studentId = getUserId(req);
+      const { assessmentName, examType, totalMarks, obtainedMarks, remarks, classroomId } = req.body;
+
+      if (!assessmentName || !totalMarks || obtainedMarks === undefined || !classroomId) {
+        return res.status(400).json({ message: 'Assessment name, total marks, obtained marks and classroomId are required.' });
+      }
+
+      const classroom = await Classroom.findById(classroomId)
+        .populate('course', 'courseName courseCode')
+        .populate('group', 'name')
+        .populate('assignedTeacher', 'firstName lastName')
+        .lean();
+
+      if (!classroom) {
+        console.warn(`[Submit Result] Classroom ${classroomId} not found.`);
+        return res.status(404).json({ message: 'Classroom not found.' });
+      }
+
+      // Check if student is assigned to this classroom
+      const isAssigned = (classroom.assignedStudents || []).some(id => String(id) === String(studentId));
+      if (!isAssigned) {
+        console.warn(`[Submit Result] Student ${studentId} not assigned to classroom ${classroomId}.`);
+        return res.status(403).json({ message: 'You are not assigned to this classroom.' });
+      }
+
+      // Ensure required IDs are present for Result model
+      const courseId = classroom.course?._id || classroom.course;
+      const groupId = classroom.group?._id || classroom.group;
+      const teacherId = classroom.assignedTeacher?._id || classroom.assignedTeacher;
+
+      if (!courseId || !groupId || !teacherId) {
+        console.error(`[Submit Result] Missing critical classroom relations:`, { courseId, groupId, teacherId });
+        return res.status(500).json({ message: 'Classroom configuration is incomplete (missing course/group/teacher).' });
+      }
+
+      // Check for existing result to prevent duplicates
+      const existing = await Result.findOne({
+        classroom: classroomId,
+        student: studentId,
+        assessmentName: assessmentName.trim()
+      });
+
+      if (existing) {
+        return res.status(400).json({ message: 'You have already submitted this assessment.' });
+      }
+
+      const newResult = await Result.create({
+        assessmentName: assessmentName.trim(),
+        examType: (examType || 'quiz').toLowerCase(),
+        totalMarks,
+        obtainedMarks,
+        remarks: remarks || 'Awaiting Grading - Student Work Submitted',
+        publishedAt: new Date(),
+        classroom: classroom._id,
+        course: courseId,
+        group: groupId,
+        teacher: teacherId,
+        student: studentId,
+      });
+
+      console.log(`[Submit Result] Result created successfully for student ${studentId}`);
+
+      // Emit real-time notification to the classroom (teacher room)
+      const io = req.app.get('socketio');
+      if (io) {
+        io.to(`classroom_${classroomId}`).emit('student-submission', {
+          studentId: studentId,
+          assessmentName,
+          classroomId
+        });
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: 'Result submitted successfully.',
+        data: newResult
+      });
+    } catch (error) {
+      console.error('Error submitting student result:', error);
+      return res.status(500).json({ message: 'Failed to submit result.', error: error.message });
     }
   },
 };

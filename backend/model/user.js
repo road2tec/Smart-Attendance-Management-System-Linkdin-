@@ -24,12 +24,22 @@ const userSchema = new Schema({
     },
     role: {
         type: String,
-        enum: ['admin', 'teacher', 'student'],
+        enum: ['admin', 'teacher', 'student', 'parent'],
         required: true
     },
-    mobile: {
+    // Parent-specific: the student this parent is linked to
+    linkedStudent: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        sparse: true
+    },
+    status: {
         type: String,
-        required: true
+        enum: ['pending', 'active', 'rejected'],
+        default: 'active'
+    },
+    mobile: {
+        type: String
     },
     permanentAddress: {
         street: String,
@@ -46,13 +56,11 @@ const userSchema = new Schema({
         country: String
     },
     dateOfBirth: {
-        type: Date,
-        required: true
+        type: Date
     },
     gender: {
         type: String,
-        enum: ['male', 'female', 'other'],
-        required: true
+        enum: ['male', 'female', 'other']
     },
     department: {
         type: Schema.Types.ObjectId,

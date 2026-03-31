@@ -25,8 +25,8 @@ const roleCheck = (roles) => {
   };
 };
 
-// Create course route
-router.post('/create', roleCheck(['admin']), createCourse);
+// Create course route - accessible to admin and teacher (course coordinators)
+router.post('/create', roleCheck(['admin', 'teacher']), createCourse);
 
 // Admin Routes
 router.get('/admin/courses', roleCheck(['admin']), getAllCoursesForAdmin);
@@ -44,7 +44,7 @@ router.get('/department/:departmentId', getCoursesByDepartment);
 router.get('/:id', getCourseById);
 
 // Assign coordinator to course
-router.patch('/:id/assign-coordinator', roleCheck(['admin']), assignCoordinator);
+router.patch('/:id/assign-coordinator', roleCheck(['admin', 'teacher']), assignCoordinator);
 
 // Enroll student in course
 router.post('/:id/enroll', enrollInCourse);
@@ -52,8 +52,8 @@ router.post('/:id/enroll', enrollInCourse);
 // Update course - accessible to admin and coordinator
 router.put('/:id', roleCheck(['admin', 'teacher']), updateCourse);
 
-// Delete course - admin only
-router.delete('/:id', roleCheck(['admin']), deleteCourse);
+// Delete course
+router.delete('/:id', roleCheck(['admin', 'teacher']), deleteCourse);
 router.post(
   '/:courseId/assign-teacher',
   roleCheck(['admin', 'teacher']),

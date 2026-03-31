@@ -58,4 +58,11 @@ router.get(
   attendanceStatsController.getMonthlyAttendanceReport
 );
 
+// Admin action to notify parents of low attendance
+router.post(
+  '/notify-parents',
+  authorizeRoles(['admin']),
+  attendanceStatsController.notifyParents
+);
+
 module.exports = router;

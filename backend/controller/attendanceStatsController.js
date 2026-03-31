@@ -865,6 +865,60 @@ const getOverallAttendance = async (req, res) => {
       { $sort: { attendanceRate: -1 } }
     ]);
     
+    const sessionLogs = await Attendance.aggregate([
+      { $match: dateFilter },
+      { $lookup: {
+          from: 'classes',
+          localField: 'class',
+          foreignField: '_id',
+          as: 'classDetails'
+        }
+      },
+      { $unwind: { path: '$classDetails', preserveNullAndEmptyArrays: true } },
+      { $lookup: {
+          from: 'users',
+          localField: 'teacher',
+          foreignField: '_id',
+          as: 'teacherInfo'
+        }
+      },
+      { $unwind: { path: '$teacherInfo', preserveNullAndEmptyArrays: true } },
+      { $group: {
+          _id: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
+            classId: '$class'
+          },
+          className: { $first: '$classDetails.name' },
+          teacherName: { $first: { $concat: ['$teacherInfo.firstName', ' ', '$teacherInfo.lastName'] } },
+          totalCount: { $sum: 1 },
+          presentCount: { $sum: { $cond: [{ $eq: ['$status', 'present'] }, 1, 0] } },
+          absentCount: { $sum: { $cond: [{ $eq: ['$status', 'absent'] }, 1, 0] } },
+          lateCount: { $sum: { $cond: [{ $eq: ['$status', 'late'] }, 1, 0] } }
+        }
+      },
+      { $project: {
+          date: '$_id.date',
+          classId: '$_id.classId',
+          className: 1,
+          teacherName: 1,
+          totalCount: 1,
+          presentCount: 1,
+          absentCount: 1,
+          lateCount: 1,
+          rate: {
+            $multiply: [
+              { $divide: [
+                { $add: ['$presentCount', { $multiply: ['$lateCount', 0.5] }] },
+                '$totalCount'
+              ]},
+              100
+            ]
+          }
+        }
+      },
+      { $sort: { date: -1 } }
+    ]);
+
     res.status(200).json({
       success: true,
       data: {
@@ -880,7 +934,8 @@ const getOverallAttendance = async (req, res) => {
         attendanceByCourse,
         attendanceByClassroom,
         attendanceByTeacher,
-        lowAttendanceStudents
+        lowAttendanceStudents,
+        sessionLogs
       }
     });
   } catch (error) {
@@ -1116,5 +1171,75 @@ const getMonthlyAttendanceReport = async (req, res) => {
     });
   }
 };
-const attendanceStatsController = {getStudentAttendance,getDailyAttendanceReport, getClassAttendance, getClassroomAttendance, getTeacherAttendance, getOverallAttendance, getMonthlyAttendanceReport,getMonthlyAttendanceReport};
+
+const notifyParents = async (req, res) => {
+  try {
+    const { studentIds, customMessage } = req.body;
+    
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid list of student IDs.' });
+    }
+
+    const mailer = require('../utils/mailer');
+    if (!mailer.isMailerConfigured()) {
+       return res.status(503).json({ success: false, message: 'SMTP Email system is not configured in the server environment.' });
+    }
+
+    // Find parent accounts tied to the low attendance students
+    const parents = await User.find({
+      role: 'parent',
+      linkedStudent: { $in: studentIds }
+    }).populate('linkedStudent', 'firstName lastName');
+
+    if (!parents || parents.length === 0) {
+      return res.status(404).json({ success: false, message: 'No linked parent accounts were found for the selected students.' });
+    }
+
+    const emailPromises = parents.map(parent => {
+      if (!parent.email) return Promise.resolve();
+      
+      const studentName = parent.linkedStudent ? `${parent.linkedStudent.firstName} ${parent.linkedStudent.lastName}` : 'your child';
+      const subject = `Urgent: Attendance Alert for ${studentName}`;
+      
+      const defaultMessage = `Dear Parent/Guardian,\n\nThis is an automated 6-month attendance review alert from the SmartAttend system. We have noticed that ${studentName}'s attendance is critically low. Please contact the college administration office to discuss this matter.\n\nThank you,\nSmartAttend Administration`;
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+          <div style="background-color: #f43f5e; color: white; padding: 20px; text-align: center;">
+            <h2 style="margin: 0; font-size: 24px;">Low Attendance Alert</h2>
+          </div>
+          <div style="padding: 32px; background-color: #ffffff; color: #334155; line-height: 1.6;">
+            <p>Dear Parent/Guardian,</p>
+            <p>${customMessage || `This is an official 6-month attendance review notice. The system has detected that <strong>${studentName}</strong> has maintained a critically low attendance percentage.`}</p>
+            <p>Please contact the administration office at your earliest convenience to review the attendance log.</p>
+            <br/>
+            <p>Regards,<br/><strong>College Administration</strong></p>
+          </div>
+        </div>
+      `;
+
+      return mailer.sendMail({
+        to: parent.email,
+        subject,
+        text: customMessage || defaultMessage,
+        html: htmlContent
+      });
+    });
+
+    await Promise.allSettled(emailPromises);
+
+    res.status(200).json({
+      success: true,
+      message: `System successfully dispatched alerts to ${parents.length} parent(s).`
+    });
+  } catch (error) {
+    console.error('Error notifying parents:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process parent email notifications.',
+      error: error.message
+    });
+  }
+};
+
+const attendanceStatsController = {getStudentAttendance,getDailyAttendanceReport, getClassAttendance, getClassroomAttendance, getTeacherAttendance, getOverallAttendance, getMonthlyAttendanceReport, notifyParents};
 module.exports = attendanceStatsController;

@@ -94,7 +94,9 @@ const getAllUsers = async (req, res) => {
         .select('-password')
         .skip(skip)
         .limit(limit)
-        .sort({ lastName: 1, firstName: 1 });
+        .sort({ lastName: 1, firstName: 1 })
+        .populate('group')
+        .populate('department');
   
       // Get total count for pagination
       const total = await User.countDocuments(filter);
@@ -137,8 +139,10 @@ const getAllUsers = async (req, res) => {
         return res.status(404).json({ message: 'User not found' });
       }
   
-      // Check permission (admin can update any user, users can update only themselves)
-      if (req.user.role !== 'admin' && req.user.userId !== req.params.id) {
+      // Check permission (admin can update any user, users can update only themselves, teachers can update students)
+      const isTeacherUpdatingStudent = req.user.role === 'teacher' && user.role === 'student';
+
+      if (req.user.role !== 'admin' && req.user.userId !== req.params.id && !isTeacherUpdatingStudent) {
         return res.status(403).json({ message: 'Not authorized to update this user' });
       }
   
@@ -216,14 +220,19 @@ const getAllUsers = async (req, res) => {
   // Delete user
   const deleteUser = async (req, res) => {
     try {
-      // Only admin can delete users
-      if (req.user.role !== 'admin') {
+      // Check if user has permission to delete (Admin or Teacher)
+      if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
         return res.status(403).json({ message: 'Not authorized' });
       }
   
       const user = await User.findById(req.params.id);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
+      }
+
+      // If the requester is a teacher, they can only delete students
+      if (req.user.role === 'teacher' && user.role !== 'student') {
+        return res.status(403).json({ message: 'Teachers can only delete student accounts' });
       }
   
       // Delete user
@@ -236,4 +245,69 @@ const getAllUsers = async (req, res) => {
     }
   };
 
-module.exports = { getAllStudents, getAllTeachers, getAllUsers, updateUser, deleteUser, getUserById};
+  // Update user status (Admin only)
+  const updateUserStatus = async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!['pending', 'active', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Permissions check
+      if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+        return res.status(403).json({ message: 'Not authorized' });
+      }
+
+      if (req.user.role === 'teacher' && user.role !== 'student') {
+        return res.status(403).json({ message: 'Teachers can only update student statuses' });
+      }
+
+      user.status = status;
+      await user.save();
+
+      res.json({
+        message: `User status updated to ${status}`,
+        user: { _id: user._id, email: user.email, status: user.status }
+      });
+    } catch (error) {
+      console.error('Update status error:', error);
+      res.status(500).json({ message: 'Server error during status update', error: error.message });
+    }
+  };
+
+  // Get all pending users (Admin and Teacher)
+  const getPendingUsers = async (req, res) => {
+    try {
+      const query = { status: 'pending' };
+      
+      // If requester is a teacher, only show pending students
+      if (req.user.role === 'teacher') {
+        query.role = 'student';
+      }
+
+      const users = await User.find(query)
+        .select('-password')
+        .populate('department');
+
+      res.json(users);
+    } catch (error) {
+      console.error('Get pending users error:', error);
+      res.status(500).json({ message: 'Server error fetching pending users' });
+    }
+  };
+
+module.exports = { 
+  getAllStudents, 
+  getAllTeachers, 
+  getAllUsers, 
+  updateUser, 
+  deleteUser, 
+  getUserById,
+  updateUserStatus,
+  getPendingUsers
+};

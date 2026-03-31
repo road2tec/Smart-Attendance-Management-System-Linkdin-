@@ -8,7 +8,7 @@ const resultSchema = new mongoose.Schema({
   },
   examType: {
     type: String,
-    enum: ['quiz', 'assignment', 'internal', 'midterm', 'final', 'practical', 'other'],
+    enum: ['quiz', 'assignment', 'exam', 'internal', 'midterm', 'final', 'practical', 'other'],
     default: 'internal',
   },
   totalMarks: {
