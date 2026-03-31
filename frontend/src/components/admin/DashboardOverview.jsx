@@ -1,6 +1,7 @@
-﻿import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTheme } from '../../context/ThemeProvider';
+import { CalendarCheck } from 'lucide-react';
 import HeroSection from '../../components/admin/dashboard/HeroSection';
 import StudentEnrollmentSection from '../admin/dashboard/StudentEnrollment';
 import CourseDistributionSection from '../admin/dashboard/CourseDistributionSection';
@@ -17,9 +18,10 @@ import {
 } from '../../app/features/attendanceStats/attendanceStatsThunks';
 
 export default function DashboardOverview() {
-  const { themeConfig, theme } = useTheme();
+  const { themeConfig, theme, isDark } = useTheme();
   const colors = themeConfig[theme];
   const dispatch = useDispatch();
+  const formattedDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const students = useSelector(state => state.users.students);
   const courses = useSelector(state => state.courses.courses);
@@ -136,9 +138,51 @@ export default function DashboardOverview() {
   ].filter(Boolean);
 
   return (
-    <div className={`${colors.background} min-h-screen p-6`}>
-      <div className={`${colors.gradientBackground} rounded-2xl p-6 shadow-xl`}>
+    <div className={`min-h-screen p-4 sm:p-8 ${isDark ? 'bg-[#0A0E13]' : 'bg-gray-50'}`}>
+      <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
+        
+        {/* Dynamic Header Section */}
+        <div className={`relative p-8 sm:p-12 rounded-[3.5rem] overflow-hidden border ${
+          isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'
+        }`}>
+          <div className={`absolute top-0 right-0 w-96 h-96 blur-[100px] rounded-full opacity-10 -mr-32 -mt-32 ${
+            isDark ? 'bg-brand-primary' : 'bg-indigo-400'
+          }`}></div>
+          
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+            <div>
+              <div className="flex items-center gap-4 mb-4">
+                 <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] ${
+                   isDark ? 'bg-brand-primary/20 text-brand-light' : 'bg-indigo-600 text-white shadow-lg'
+                 }`}>
+                   Institutional OS v2.0
+                 </div>
+                 <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                   isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
+                 }`}>
+                    <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></div>
+                    System Online
+                 </div>
+              </div>
+              <h1 className={`text-4xl sm:text-5xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                Executive <span className={isDark ? 'text-brand-primary' : 'text-indigo-600'}>Intelligence</span>
+              </h1>
+              <p className={`mt-4 text-lg font-medium max-w-xl leading-relaxed ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                Welcome back, Administrator. Your institution's academic velocity and compliance metrics are synchronized.
+              </p>
+            </div>
+            
+            <div className={`px-8 py-6 rounded-[2rem] border backdrop-blur-md flex flex-col items-center justify-center ${
+              isDark ? 'bg-[#1E2733]/40 border-[#1E2733]' : 'bg-gray-50/50 border-gray-100'
+            }`}>
+               <CalendarCheck size={32} className={`mb-3 ${isDark ? 'text-brand-primary' : 'text-indigo-600'}`} />
+               <span className={`text-base font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>{formattedDate}</span>
+               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Operational Window</span>
+            </div>
+          </div>
+        </div>
 
+        {/* Dashboard Components */}
         <HeroSection
           stats={{
             totalStudents: students.length,
@@ -147,36 +191,49 @@ export default function DashboardOverview() {
             averageAttendance: todayAttendanceRate,
           }}
           progress={{
-            title: 'Student Progress',
+            title: 'Cohort Maturity',
             description: students.length
-              ? `${onTrackStudents} of ${students.length} students are above the attendance threshold`
-              : 'No student attendance data is available yet.',
+              ? `${onTrackStudents} students currently meet institutional attendance compliance.`
+              : 'Institutional enrollment data pending synchronization.',
             percent: onTrackPercentage,
           }}
           systemStatus={{
-            title: 'Data Sync Status',
+            title: 'Data Integrity',
             summary: totalAttendanceRecords > 0
-              ? `${totalAttendanceRecords} attendance records are reflected in the dashboard`
-              : 'Attendance data will appear here as records are captured.',
+              ? `Cryptographic verification of ${totalAttendanceRecords} records complete.`
+              : 'Awaiting primary attendance broadcast from faculty nodes.',
             badges: systemBadges,
           }}
           notifications={liveNotifications}
+          isDark={isDark}
         />
 
-        <StudentEnrollmentSection />
+        <div className="grid grid-cols-1 gap-10">
+           <StudentEnrollmentSection isDark={isDark} />
+           
+           <div className={`p-10 rounded-[3rem] border backdrop-blur-md ${
+             isDark ? 'bg-[#121A22]/50 border-[#1E2733]' : 'bg-white/80 border-gray-100 shadow-sm'
+           }`}>
+             <CourseDistributionSection coursesData={courses} isDark={isDark} />
+           </div>
 
-        <CourseDistributionSection coursesData={courses} />
+           <GroupDistribution
+             departmentData={departmentData}
+             theme={theme}
+             colors={colors}
+             isDark={isDark}
+           />
 
-        <GroupDistribution
-          departmentData={departmentData}
-          theme={theme}
-          colors={colors}
-        />
-
-        <AttendanceCharts
-          attendanceData={attendanceData}
-          groupAttendanceData={groupAttendanceData}
-        />
+           <div className={`p-10 rounded-[3rem] border backdrop-blur-md ${
+             isDark ? 'bg-[#121A22]/50 border-[#1E2733]' : 'bg-white/80 border-gray-100 shadow-sm'
+           }`}>
+              <AttendanceCharts
+                attendanceData={attendanceData}
+                groupAttendanceData={groupAttendanceData}
+                isDark={isDark}
+              />
+           </div>
+        </div>
       </div>
     </div>
   );

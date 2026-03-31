@@ -87,4 +87,26 @@ export const getMyAttendance = createAsyncThunk(
       }
     }
   );
+
+  export const getDefaultersList = createAsyncThunk(
+    'attendanceStats/getDefaultersList',
+    async (courseId, thunkAPI) => {
+      try {
+        return await attendanceStatsService.getDefaultersList(courseId);
+      } catch (error) {
+        return thunkAPI.rejectWithValue(error);
+      }
+    }
+  );
+
+  export const getStudentTrends = createAsyncThunk(
+    'attendanceStats/getStudentTrends',
+    async (courseId, thunkAPI) => {
+      try {
+        return await attendanceStatsService.getStudentTrends(courseId);
+      } catch (error) {
+        return thunkAPI.rejectWithValue(error);
+      }
+    }
+  );
   

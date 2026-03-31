@@ -9,14 +9,22 @@ import Sidebar from "./components/sidebar";
 
 // Student Components
 import StudentDashboard from './pages/student/StudentDashboard';
+import StudentDashboardOverview from './pages/student/StudentDashboardOverview';
+import StudentMaterialsPage from './pages/student/StudentMaterialsPage';
+import StudentAssessmentsPage from './pages/student/StudentAssessmentsPage';
+import StudentGroupPage from './pages/student/StudentGroupPage';
+import StudentQuizAttemptPage from './pages/student/StudentQuizAttemptPage';
 
 import ClassMaterials from "./pages/student/ClassMaterials";
 import StudentClassroomPortal from "./pages/student/StudentClassroomPortal";
+import StudentMarkAttendance from "./pages/student/StudentMarkAttendance";
 
 // Teacher Components
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import TeacherAttendanceDashboard from "./pages/teacher/TeacherAttendanceDashboard";
 import TeacherResultsPage from './pages/teacher/TeacherResultsPage';
+import TeacherMaterialsPage from './pages/teacher/TeacherMaterialsPage';
+import TeacherQuizzesPage from './pages/teacher/TeacherQuizzesPage';
 
 // Admin Components
 import DashboardOverview from './components/admin/DashboardOverview';
@@ -26,6 +34,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AttendanceDashboard from "./pages/admin/AttendanceDashboard";
 import AdminSettings from "./pages/admin/AdminSettings";
 import GroupsManagementPage from "./pages/admin/GroupsManagementPage";
+import ApprovalsPage from "./pages/admin/ApprovalsPage";
 
 // Other Components
 import CaptureImage from './pages/CaptureImage';
@@ -38,6 +47,11 @@ import ClassroomsPage from "./pages/teacher/ClassroomsPage";
 import StudentCoursesPage from "./pages/student/StudentCourses";
 import StudentResultsPage from './pages/student/StudentResultsPage';
 import SmartAttendLanding from "./pages/SmartAttendLanding";
+import ParentLayout from "./pages/parent/ParentLayout";
+import ParentDashboard from "./pages/parent/ParentDashboard";
+import ParentAttendance from "./pages/parent/ParentAttendance";
+import ParentResults from "./pages/parent/ParentResults";
+import ParentCourses from "./pages/parent/ParentCourses";
 // import ClassroomSystem from "./pages/student/StudentClassroomPortal";
 
 
@@ -57,19 +71,21 @@ function App() {
         </ProtectedRoute>
       } />
       
-      {/* Student routes */}
       <Route path="/student/" element={
-        <ProtectedRoute>
+        <ProtectedRoute allowedRoles={['student', 'admin']}>
           <StudentDashboard />
         </ProtectedRoute>
       }>
-        <Route index element={<Navigate to="/student" replace />} />
-        {/* <Route path="dashboard" element={<StudentDashboardOverview  />} /> */}
-        {/* <Route path="courses" element={<StudentCourses />} /> */}
-        <Route path="classrooms" element= {<StudentClassroomPortal/>}></Route>
-        <Route path="dashboard" element={<StudentCoursesPage />} />
-        <Route path="attendance" element={<StudentClassroomPortal/>} />
+        <Route index element={<Navigate to="/student/dashboard" replace />} />
+        <Route path="dashboard" element={<StudentDashboardOverview />} />
+        <Route path="classrooms" element={<StudentClassroomPortal />} />
+        <Route path="materials" element={<StudentMaterialsPage />} />
+        <Route path="assessments" element={<StudentAssessmentsPage />} />
+        <Route path="attendance" element={<StudentCoursesPage />} />
         <Route path="results" element={<StudentResultsPage />} />
+        <Route path="group" element={<StudentGroupPage />} />
+        <Route path="attendance/mark/:classId" element={<StudentMarkAttendance />} />
+        <Route path="quiz/:classroomId/:assessmentId" element={<StudentQuizAttemptPage />} />
         
         {/* Class-specific routes for student */}
         <Route path="courses/:courseId/classes/:classId/materials" element={<ClassMaterials />} />
@@ -78,7 +94,7 @@ function App() {
       {/* Teacher routes - SIMPLIFIED */}
       <Route path="/teacher" element={
         
-        <ProtectedRoute>
+        <ProtectedRoute allowedRoles={['teacher', 'admin']}>
           <TeacherLayout/>
         </ProtectedRoute>
       }>
@@ -88,8 +104,14 @@ function App() {
 
         {/* <Route path="courses" element={<CourseComponents />} /> */}
         <Route path="groups" element={<TeacherAttendanceDashboard />} />
+        <Route path="manageGroups" element={<GroupsManagementPage />} />
         <Route path="classroom" element={<ClassroomsPage/>} />
+        <Route path="courses" element={<CourseManagement/>} />
+        <Route path="materials" element={<TeacherMaterialsPage />} />
+        <Route path="quizzes" element={<TeacherQuizzesPage />} />
         <Route path="results" element={<TeacherResultsPage />} />
+        <Route path="students" element={<EnrolledUsersPage />} />
+        <Route path="approvals" element={<ApprovalsPage />} />
       </Route>
         {/* <Route path="attendance" element={<AttendanceManagement />} />
         <Route path="classroom" element={<VirtualClassroomDashboard/>}></Route>  */}
@@ -99,7 +121,7 @@ function App() {
       
       {/* Admin routes */}
       <Route path="/admin" element={
-        <ProtectedRoute>
+        <ProtectedRoute allowedRoles={['admin']}>
           <AdminLayout />
         </ProtectedRoute>
       }>
@@ -114,8 +136,22 @@ function App() {
         <Route path="results" element={<AdminResultsPage />}></Route>
         <Route path="adminSettings" element={<AdminSettings/>}></Route>
         <Route  path="manageDepartments" element={<DepartmentManagementPage/>}></Route>
+        <Route path="approvals" element={<ApprovalsPage />} />
       </Route>
       <Route path="/" element={<SmartAttendLanding/>}></Route>
+
+      {/* Parent routes */}
+      <Route path="/parent" element={
+        <ProtectedRoute allowedRoles={['parent']}>
+          <ParentLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="/parent/dashboard" replace />} />
+        <Route path="dashboard" element={<ParentDashboard />} />
+        <Route path="attendance" element={<ParentAttendance />} />
+        <Route path="results" element={<ParentResults />} />
+        <Route path="courses" element={<ParentCourses />} />
+      </Route>
       
       {/* Catch all route */}
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -123,4 +159,4 @@ function App() {
   );
 }
 
-export default App;
+export default App;

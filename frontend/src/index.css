@@ -1,3 +1,136 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-primary: #8b5cf6;
+  --color-brand-secondary: #2563eb;
+  --color-brand-accent: #0ea5e9;
+  --color-brand-pink: #ec4899;
+  --color-brand-light: #f5f3ff;
 
+  --color-dark-bg: #020617;
+  --color-dark-surface: #0f172a;
+  --color-dark-border: #1e293b;
+
+  --color-light-bg: #f8fafc;
+  --color-light-surface: #ffffff;
+  --color-light-border: #e2e8f0;
+
+  --font-inter: 'Inter', sans-serif;
+  --font-manrope: 'Manrope', sans-serif;
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes bloom {
+    0%, 100% { box-shadow: 0 0 8px var(--color-brand-primary); transform: scale(1); opacity: 0.8; }
+    50% { box-shadow: 0 0-16px var(--color-brand-primary); transform: scale(1.05); opacity: 1; }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes scan {
+    0% { top: 0%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+}
+
+@layer components {
+  /* Strict "No Italic" Font Policy */
+  * {
+    font-style: normal !important;
+  }
+
+  /* Professional Glass Effects 2.0 */
+  .glass-card {
+    @apply backdrop-blur-2xl bg-white/70 border border-slate-200/40 shadow-sm transition-all duration-700;
+  }
+  
+  .dark .glass-card {
+    @apply bg-slate-900/40 border border-white/5 shadow-2xl;
+  }
+
+  .glass-card-elite {
+    @apply backdrop-blur-3xl bg-white/10 border border-white/20 shadow-[0_20px_50px_rgba(139,92,246,0.15)] transition-all duration-700;
+  }
+  
+  .glass-card:hover {
+    @apply shadow-2xl -translate-y-2 border-brand-primary/40;
+  }
+
+  /* Neural Mesh Background Utility */
+  .neural-mesh {
+    background-image: 
+      radial-gradient(circle at 2px 2px, rgba(139, 92, 246, 0.05) 1px, transparent 0);
+    background-size: 40px 40px;
+  }
+
+  .dark .neural-mesh {
+    background-image: 
+      radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.03) 1px, transparent 0);
+  }
+
+  /* Mixed-Color Buttons (Lavender & Blue) */
+  .btn-premium {
+    @apply px-8 py-3.5 rounded-full font-black tracking-widest uppercase text-xs transition-all duration-500 
+           bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-primary text-white 
+           bg-[length:200%_auto] hover:shadow-[0_15px_40px_rgba(139,92,246,0.4)] hover:scale-105 active:scale-95;
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 3s linear infinite;
+  }
+
+  .animate-bloom {
+    animation: bloom 3s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .scan-line {
+    @apply absolute w-full h-1 bg-gradient-to-r from-transparent via-brand-primary to-transparent shadow-[0_0_15px_var(--color-brand-primary)];
+    animation: scan 4s linear infinite;
+  }
+  
+  .btn-outline-premium {
+    @apply px-8 py-3.5 rounded-full font-black tracking-widest uppercase text-xs transition-all duration-500 
+           border-2 border-brand-primary/30 text-brand-primary 
+           hover:bg-brand-primary hover:text-white hover:border-brand-primary hover:shadow-xl;
+  }
+
+  /* Dynamic Gradients (Mixed Colors) */
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-primary bg-clip-text text-transparent font-black tracking-tighter;
+  }
+}
+
+body {
+  font-family: var(--font-inter);
+  @apply transition-colors duration-300;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-manrope);
+  @apply font-bold tracking-tight;
+}
+
+/* Custom Scrollbar for Professional Feel */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full dark:bg-slate-800;
+}

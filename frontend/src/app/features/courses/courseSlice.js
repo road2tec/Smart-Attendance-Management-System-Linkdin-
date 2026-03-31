@@ -87,8 +87,10 @@ const courseSlice = createSlice({
       })
       .addCase(createCourse.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.courses.push(action.payload);
-        state.message = "Course created successfully";
+        // The backend returns { course: ..., assignedToGroups: ..., message: ... }
+        const newCourse = action.payload.course || action.payload;
+        state.courses.push(newCourse);
+        state.message = action.payload.message || "Course created successfully";
         state.lastFetched = Date.now();
       })
       .addCase(createCourse.rejected, (state, action) => {

@@ -1,0 +1,11 @@
+opencv-python
+onnxruntime
+numpy
+fastapi
+uvicorn
+insightface
+filterpy
+scipy
+python-multipart
+python-dotenv
+requests

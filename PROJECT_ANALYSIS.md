@@ -170,7 +170,34 @@ npm run dev
 
 ---
 
-### **STEP 3: ADMIN SETUP (Create Base Data)**
+### **STEP 3: SETUP (AI Microservice)**
+```bash
+# 3.1 Create and activate virtual environment
+cd ai_module
+python -m venv venv
+venv\Scripts\activate # Windows
+# source venv/bin/activate # Linux/Mac
+
+# 3.2 Install dependencies
+# Note: insightface requires numpy 1.x for binary compatibility
+pip install "numpy<2.0.0"
+pip install -r requirements.txt
+
+# ⚠️ Windows Users: If you hit MAX_PATH or Deep Path limits during install, 
+# move your project to a shorter path (e.g., C:\SmartAttend) first.
+
+# 3.3 Download required ONNX AI models
+# This will download detection, recognition, and anti-spoof models
+python download_models.py
+
+# 3.4 Start FastApi backend server for AI
+python -m uvicorn app:app --host 0.0.0.0 --port 8000
+# AI Service runs on http://localhost:8000
+```
+
+---
+
+### **STEP 4: ADMIN SETUP (Create Base Data)**
 
 **Login as Admin:** `admin@mail.com` / `123456Aa`
 
@@ -235,7 +262,7 @@ This creates a **"Classroom"** (teaching assignment)
 
 ---
 
-### **STEP 4: TEACHER WORKFLOW (Schedule Classes)**
+### **STEP 5: TEACHER WORKFLOW (Schedule Classes)**
 
 **Login as Teacher:** Use the email/password from step 3.4
 
@@ -291,7 +318,7 @@ Optional:
 
 ---
 
-### **STEP 5: STUDENT WORKFLOW (Mark Attendance)**
+### **STEP 6: STUDENT WORKFLOW (Mark Attendance)**
 
 **Login as Student:** Use the email/password from step 3.5
 

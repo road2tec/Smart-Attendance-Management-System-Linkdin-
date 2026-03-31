@@ -216,13 +216,13 @@ const classroomSlice = createSlice({
       .addCase(getClassroomsByTeacher.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        console.log(action.payload)
-        state.teacherClassrooms = action.payload;
+        const classrooms = Array.isArray(action.payload) ? action.payload : action.payload?.data;
+        state.teacherClassrooms = classrooms || [];
         
         // Process materials for teacher view
         const teacherMaterials = [];
-        if (Array.isArray(action.payload)) {
-          action.payload.forEach(classroom => {
+        if (Array.isArray(classrooms)) {
+          classrooms.forEach(classroom => {
             if (classroom.sharedResources && classroom.sharedResources.length > 0) {
               teacherMaterials.push(...classroom.sharedResources);
             }
@@ -245,12 +245,13 @@ const classroomSlice = createSlice({
       .addCase(getClassroomsByStudent.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.studentClassrooms = action.payload;
+        const classrooms = Array.isArray(action.payload) ? action.payload : action.payload?.data;
+        state.studentClassrooms = classrooms || [];
         
         // Process materials for student view if applicable
         const studentMaterials = [];
-        if (Array.isArray(action.payload)) {
-          action.payload.forEach(classroom => {
+        if (Array.isArray(classrooms)) {
+          classrooms.forEach(classroom => {
             if (classroom.sharedResources && classroom.sharedResources.length > 0) {
               studentMaterials.push(...classroom.sharedResources);
             }

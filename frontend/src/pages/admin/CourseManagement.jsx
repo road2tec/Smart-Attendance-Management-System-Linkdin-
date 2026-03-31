@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeProvider';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, Layout, Book, Globe, Shield, Search, Filter } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
   fetchAdminCourses, 
@@ -21,16 +21,14 @@ import EditCourseModal from '../../components/admin/courseManagement/ModalCompon
 import ViewCourseModal from '../../components/admin/courseManagement/ModalComponents/ViewCourseModal';
 import CreateCourseModal from '../../components/admin/courseManagement/ModalComponents/CreateCourseModal';
 import AssignTeacherModal from '../../components/admin/courseManagement/ModalComponents/AssignTeacherModal';
-import { toast } from 'react-toastify'; 
+import { toast } from 'react-hot-toast'; 
 import { fetchDepartments } from '../../app/features/departments/departmentThunks';
 import { fetchTeachers } from '../../app/features/users/userThunks';
 import { fetchAllGroups } from '../../app/features/groups/groupThunks';
 import { createClassroom } from '../../app/features/classroom/classroomThunks';
 
 export default function CourseManagement() {
-  const { themeConfig, theme } = useTheme();
-  const colors = themeConfig[theme];
-  
+  const { themeConfig, theme, isDark } = useTheme();
   
   const initialFormState = {
     courseName: '',
@@ -42,11 +40,10 @@ export default function CourseManagement() {
     semester: '',
     credits: 0,
     maxCapacity: 0,
-    isActive: false
+    isActive: true
   };
   
   const [formData, setFormData] = useState(initialFormState);
-  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -58,21 +55,12 @@ export default function CourseManagement() {
   
   const { courses = [], isLoading = false, error = null, message = null } = useSelector(state => state.courses || {});
   const departmentsState = useSelector((state) => state.departments);
-  const { departments = [], loading: departmentsLoading, error: departmentsError } = departmentsState;
-  const { user, isAuthenticated } = useSelector(state => state.auth);
+  const { departments = [], loading: departmentsLoading } = departmentsState;
+  const { user } = useSelector(state => state.auth);
   const usersState = useSelector((state) => state.users);
-  const { 
-    teachers = [], 
-    students = [],
-    loading: { teachers: teachersLoading, students: studentsLoading },
-    error: { teachers: teachersError, students: studentsError }
-  } = usersState;
+  const { teachers = [], loading: { teachers: teachersLoading } } = usersState;
   const groupsState = useSelector((state) => state.groups);
-  const { 
-    allGroups = {}, 
-    loading: groupsLoading,
-    error: groupsError 
-  } = groupsState;
+  const { allGroups = {}, loading: groupsLoading } = groupsState;
 
   // Load courses when component mounts
   useEffect(() => {
@@ -84,26 +72,16 @@ export default function CourseManagement() {
       dispatch(fetchStudentCourses());
     }
   }, [dispatch, user.role]);
-  console.log(courses);
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      if (!departments.length && !departmentsLoading) {
-        dispatch(fetchDepartments());
-      }
-      
-      if (!teachers.length && !teachersLoading) {
-        dispatch(fetchTeachers());
-      }
-
-      if (Object.keys(allGroups).length === 0 && !groupsLoading) {
-        dispatch(fetchAllGroups());
-      }
+      if (!departments.length && !departmentsLoading) dispatch(fetchDepartments());
+      if (!teachers.length && !teachersLoading) dispatch(fetchTeachers());
+      if (Object.keys(allGroups).length === 0 && !groupsLoading) dispatch(fetchAllGroups());
     };
     fetchInitialData();
   }, [dispatch]);
   
-  // Handle messages/errors from Redux state
   useEffect(() => {
     if (message) {
       toast.success(message);
@@ -115,39 +93,58 @@ export default function CourseManagement() {
     }
   }, [message, error, dispatch]);
 
-  // Handle search functionality
   const filteredCourses = courses.filter(course =>
     course.courseName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     course.courseCode?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Robust handleInputChange function
   const handleFormInputChange = (event) => {
     const { name, value, type, checked } = event.target;
-    
     setFormData(prevData => ({
       ...prevData,
       [name]: type === 'checkbox' ? checked : value
     }));
   };
 
-  // Handle Create Course
   const handleCreateCourse = async (e) => {
     e.preventDefault();
-    if (isValidFormData(formData)) {
+    
+    // If user is a teacher, automatically set them as coordinator
+    const finalData = { ...formData };
+    if (user.role === 'teacher' && !finalData.courseCoordinator) {
+      finalData.courseCoordinator = user._id || user.id || user.userId;
+    }
+
+    if (isValidFormData(finalData)) {
       try {
-        await dispatch(createCourse(formData)).unwrap();
+        await dispatch(createCourse(finalData)).unwrap();
         setIsCreating(false);
         resetFormData();
+        toast.success('Course established in registry');
       } catch (err) {
         console.error('Failed to create course:', err);
+        if (err.error?.includes('E11000') || err.message?.includes('E11000')) {
+          toast.error('CREATION DENIED: Course Code already exists in the institutional archives.');
+        } else {
+          toast.error(err.message || 'Institutional protocol failed: Course creation rejected.');
+        }
       }
+    } else {
+      // Provide actionable feedback for invalid data
+      const missing = [];
+      if (!finalData.courseName) missing.push('Identity Name');
+      if (!finalData.courseCode) missing.push('Catalogue Code');
+      if (!finalData.department) missing.push('Academic Domain (Department)');
+      if (!finalData.academicYear) missing.push('Session Year');
+      if (finalData.credits <= 0) missing.push('Credit Weight (>0)');
+      if (finalData.maxCapacity <= 0) missing.push('Student Capacity (>0)');
+      
+      toast.error(`SUBMISSION BLOCKED: Missing mandatory metadata: ${missing.join(', ')}`);
     }
   };
 
-  // Handle Delete Course
   const handleDeleteCourse = async (courseId) => {
-    if (window.confirm('Are you sure you want to delete this course?')) {
+    if (window.confirm('Delete this course? This action is permanent.')) {
       try {
         await dispatch(deleteCourse(courseId)).unwrap();
       } catch (err) {
@@ -156,38 +153,27 @@ export default function CourseManagement() {
     }
   };
 
-  // Validation for form data
   const isValidFormData = (data) => {
     return (
-      data.courseName &&
-      data.courseCode &&
-      data.courseDescription &&
-      // data.department &&
-      data.academicYear &&
-      data.semester &&
+      data.courseName && 
+      data.courseCode && 
+      data.courseDescription && 
+      data.academicYear && 
+      data.department &&
       data.credits > 0 &&
       data.maxCapacity > 0
     );
   };
   
-  // Reset form data to initial values
-  const resetFormData = () => {
-    setFormData(initialFormState);
-  };
+  const resetFormData = () => setFormData(initialFormState);
   
-  // Handle View Course
   const handleViewCourse = (course) => {
     setSelectedCourse(course);
     setIsViewing(true);
-    setIsEditing(false);
-    setIsCreating(false);
-    setIsAssigningTeacher(false);
   };
   
-  // Handle opening the edit modal
   const handleOpenEditModal = (course) => {
     setSelectedCourse(course);
-    // Populate form with course data
     setFormData({
       courseName: course.courseName || '',
       courseCode: course.courseCode || '',
@@ -198,28 +184,18 @@ export default function CourseManagement() {
       semester: course.semester || '',
       credits: course.credits || 0,
       maxCapacity: course.maxCapacity || 0,
-      isActive: course.isActive || false
+      isActive: course.isActive !== undefined ? course.isActive : true
     });
     setIsEditing(true);
-    setIsViewing(false);
-    setIsCreating(false);
-    setIsAssigningTeacher(false);
   };
   
-  // Handle Edit Course
   const handleEditCourse = async (e) => {
     e.preventDefault();
     if (selectedCourse && isValidFormData(formData)) {
       try {
-        // Create a copy of the form data
         const updatedData = {...formData};
+        if (updatedData.courseCoordinator === '') updatedData.courseCoordinator = null;
         
-        // Convert empty coordinator string to null
-        if (updatedData.courseCoordinator === '') {
-          updatedData.courseCoordinator = null;
-        }
-        
-        // Dispatch the update action
         await dispatch(updateCourse({ 
           courseId: selectedCourse._id, 
           courseData: updatedData 
@@ -233,16 +209,11 @@ export default function CourseManagement() {
     }
   };
 
-  // Handle opening the assign teacher modal
   const handleOpenAssignTeacherModal = (course) => {
     setSelectedCourse(course);
     setIsAssigningTeacher(true);
-    setIsViewing(false);
-    setIsEditing(false);
-    setIsCreating(false);
   };
 
-  // Handle Assign Teacher
   const handleAssignTeacher = async (data) => {
     try {
       await dispatch(assignTeacherToCourse(data)).unwrap();
@@ -253,78 +224,105 @@ export default function CourseManagement() {
     }
   };
 
-  // Add new action to CourseCard component
-  const courseActions = {
-    onView: handleViewCourse,
-    onEdit: handleOpenEditModal,
-    onDelete: handleDeleteCourse,
-    onAssignTeacher: handleOpenAssignTeacherModal
-  };
-
   return (
-    <div className={`p-6 ${colors.gradientBackground} min-h-screen`}>
-      <div className="mb-6">
-        <h1 className={`text-2xl font-bold mb-2 ${colors.gradient.text}`}>Course Management</h1>
-        <p className={`${colors.secondaryText}`}>Manage your institution's courses, instructors, and students</p>
-      </div>
-
-      {/* Dashboard Charts */}
-      <DashboardCharts courses={courses} colors={colors} />
-      
-      {/* Action Bar */}
-      <div className="flex flex-col md:flex-row justify-between mb-6 gap-4">
-        <SearchBar 
-          searchTerm={searchTerm} 
-          setSearchTerm={setSearchTerm} 
-          colors={colors} 
-        />
+    <div className={`min-h-screen p-6 sm:p-10 ${isDark ? 'bg-[#0A0E13]' : 'bg-gray-50'}`}>
+      <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in duration-700">
         
-        <button
-          className={`flex items-center py-2 px-4 rounded-lg ${colors.button.green}`}
-          onClick={() => {
-            setIsCreating(true);
-            setIsEditing(false);
-            setIsViewing(false);
-            setIsAssigningTeacher(false);
-            setSelectedCourse(null);
-            resetFormData();
-          }}
-        >
-          <Plus className="mr-2 h-5 w-5" />
-          Create Course
-        </button>
+        {/* Modern Header */}
+        <div className={`relative p-8 sm:p-12 rounded-[2.5rem] overflow-hidden border ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
+          <div className={`absolute top-0 right-0 w-80 h-80 blur-3xl rounded-full opacity-10 -mr-24 -mt-24 ${isDark ? 'bg-brand-primary' : 'bg-indigo-300'}`}></div>
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+            <div className="flex items-center gap-6">
+              <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center ${isDark ? 'bg-brand-primary/20 text-brand-light' : 'bg-indigo-600 text-white shadow-xl shadow-indigo-100'}`}>
+                <Layout className="w-10 h-10" />
+              </div>
+              <div>
+                <h1 className={`text-3xl sm:text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Course Ledger</h1>
+                <p className={`text-sm sm:text-base font-medium mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Orchestrate your institution's academic offerings.</p>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-4">
+               <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest ${isDark ? 'bg-gray-800/50 text-gray-500' : 'bg-gray-100/50 text-gray-400'}`}>
+                  <Shield size={14} />
+                  {user?.role} Portal
+               </div>
+               
+               {user?.role === 'teacher' && (
+                 <button
+                  className={`flex items-center gap-3 px-8 py-4 rounded-[1.25rem] font-black text-sm transition-all hover:scale-105 active:scale-95 ${
+                    isDark 
+                      ? 'bg-brand-primary text-white shadow-2xl shadow-brand-primary/20 hover:bg-brand-secondary' 
+                      : 'bg-indigo-600 text-white shadow-xl shadow-indigo-100 hover:bg-indigo-700'
+                  }`}
+                  onClick={() => {
+                    setIsCreating(true);
+                    setSelectedCourse(null);
+                    resetFormData();
+                  }}
+                >
+                  <Plus size={20} strokeWidth={3} />
+                  New Course
+                </button>
+               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Dashboard Charts - Pass props to handle modernization internally */}
+        <DashboardCharts courses={courses} isDark={isDark} />
+        
+        {/* Interactive Action Bar */}
+        <div className={`p-6 rounded-[2rem] border backdrop-blur-md flex flex-col md:flex-row items-center gap-6 ${isDark ? 'bg-[#121A22]/80 border-[#1E2733]' : 'bg-white/80 border-gray-100 shadow-sm'}`}>
+          <div className="relative flex-1 w-full">
+            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} size={18} />
+            <input 
+              type="text"
+              placeholder="Filter by name or course code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full pl-12 pr-4 py-4 rounded-2xl bg-transparent border-2 border-transparent focus:border-brand-primary transition-all font-medium text-sm ${isDark ? 'text-white placeholder-gray-600' : 'text-gray-900 placeholder-gray-400'}`}
+            />
+          </div>
+          
+          <div className="flex items-center gap-3 shrink-0">
+             <button className={`p-4 rounded-xl transition-colors ${isDark ? 'bg-gray-800 text-gray-400 hover:text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                <Filter size={20} />
+             </button>
+             <div className={`h-8 w-px ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
+             <p className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                {filteredCourses.length} Courses Found
+             </p>
+          </div>
+        </div>
+        
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-4">
+             <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
+             <p className="text-sm font-black uppercase tracking-widest text-gray-500">Syncing Knowledge...</p>
+          </div>
+        ) : (
+          <CourseList 
+            courses={filteredCourses} 
+            onView={handleViewCourse}
+            onEdit={handleOpenEditModal}
+            onDelete={handleDeleteCourse} 
+            onAssignTeacher={handleOpenAssignTeacherModal}
+            isDark={isDark}
+            userRole={user?.role}
+          />
+        )}
       </div>
       
-      {/* Loading State */}
-      {isLoading && (
-        <div className={`p-4 ${colors.card} rounded-lg mb-6 ${colors.text} text-center`}>
-          Loading courses...
-        </div>
-      )}
-      
-      {/* Course Listing */}
-      {!isLoading && (
-        <CourseList 
-          courses={filteredCourses} 
-          onView={handleViewCourse}
-          onEdit={handleOpenEditModal}
-          onDelete={handleDeleteCourse} 
-          onAssignTeacher={handleOpenAssignTeacherModal}
-          colors={colors} 
-        />
-      )}
-      
-      {/* Modals */}
+      {/* Modals - Standardized Modals */}
       <CreateCourseModal
         isOpen={isCreating}
-        onClose={() => {
-          setIsCreating(false);
-          resetFormData();
-        }}
+        onClose={() => setIsCreating(false)}
         onSubmit={handleCreateCourse}
         formData={formData}
         handleInputChange={handleFormInputChange}
-        colors={colors}
+        isDark={isDark}
         departments={departments}
         teachers={teachers}
       />
@@ -332,14 +330,11 @@ export default function CourseManagement() {
       <EditCourseModal
         isOpen={isEditing}
         course={selectedCourse}
-        onClose={() => {
-          setIsEditing(false);
-          resetFormData();
-        }}
+        onClose={() => setIsEditing(false)}
         onSubmit={handleEditCourse}
         formData={formData}
         handleInputChange={handleFormInputChange}
-        colors={colors}
+        isDark={isDark}
         departments={departments}
         teachers={teachers}
       />
@@ -352,7 +347,7 @@ export default function CourseManagement() {
           handleOpenEditModal(selectedCourse);
           setIsViewing(false);
         }}
-        colors={colors}
+        isDark={isDark}
         departments={departments}
         teachers={teachers}
       />
@@ -364,7 +359,7 @@ export default function CourseManagement() {
         course={selectedCourse}
         groups={allGroups}
         teachers={teachers}
-        colors={colors}
+        isDark={isDark}
         isLoading={isLoading}
       />
     </div>

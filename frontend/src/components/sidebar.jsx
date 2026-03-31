@@ -1,67 +1,69 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
   BookOpen, 
   ClipboardList, 
-  UserPlus, 
-  BarChart, 
-  StickyNote, 
-  Bell, 
-  PlusCircle, 
-  Menu,
-  User,
-  Users,
   Settings,
   ChevronLeft,
   ChevronRight,
-  Book,
-  Calendar,
-  Share2,
-  Home,
-  GroupIcon,
-  BookUser,
+  User,
+  Users,
+  BarChart,
   ShieldAlert,
-  Activity
+  Activity,
+  BookUser,
+  Grid,
+  ShieldCheck
 } from "lucide-react";
 import { useTheme } from "../context/ThemeProvider";
 import { useSelector } from "react-redux";
 
-const Sidebar = ({activeView, selectedCourse, selectedGroup, selectedClass, onNavigate}) => {
-  const [collapsed, setCollapsed] = useState(false);
-  const { theme, themeConfig, isDark } = useTheme();
+const Sidebar = ({collapsed: externalCollapsed, setCollapsed: setExternalCollapsed}) => {
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const { isDark } = useTheme();
   const [sidebarContent, setSidebarContent] = useState([]);
   const { user } = useSelector(state => state.auth);
   const location = useLocation();
-  
-  // Define icon colors based on theme - matching the dashboard colors
-  const iconColor = isDark ? "#2F955A" : "#31B7AF"; // Dark green for dark theme, teal for light theme
-  const activeIconColor = isDark ? "#2F955A" : "#6D77D8"; // Dark green for dark, purple for light (matching the table header)
+
+  const isCollapsed = externalCollapsed !== undefined ? externalCollapsed : internalCollapsed;
+  const toggleCollapse = () => {
+    if (setExternalCollapsed) setExternalCollapsed(!externalCollapsed);
+    else setInternalCollapsed(!internalCollapsed);
+  };
 
   const sideBarItems = {
     teacher: [
       { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} />, link: "/teacher/dashboard" },
+      { id: "students", label: "Students", icon: <User size={20} />, link: "/teacher/students" },
+      { id: "courses", label: "My Subjects", icon: <BookOpen size={20} />, link: "/teacher/courses" },
       { id: "classroom", label: "Classroom", icon: <BookUser size={20} />, link: "/teacher/classroom" },
-      { id: "groups", label: "Attendance Records", icon: <GroupIcon size={20} />, link: "/teacher/groups" },
-      { id: "results", label: "Results", icon: <BarChart size={20} />, link: "/teacher/results" },
+      { id: "materials", label: "Study Material", icon: <BookOpen size={20} />, link: "/teacher/materials" },
+      { id: "quizzes", label: "Manage Tests", icon: <ShieldCheck size={20} />, link: "/teacher/quizzes" },
+      { id: "manageGroups", label: "Manage Groups", icon: <Users size={20} />, link: "/teacher/manageGroups" },
+      { id: "groups", label: "Attendance Records", icon: <Grid size={20} />, link: "/teacher/groups" },
+      { id: "results", label: "My Scores", icon: <BarChart size={20} />, link: "/teacher/results" },
+      { id: "approvals", label: "Approvals", icon: <ShieldCheck size={20} />, link: "/teacher/approvals" },
     ],
     student: [
       { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} />, link: "/student/dashboard" },
-      { id: "attendance", label: "Attendance", icon: <ClipboardList size={20} />, link: "/student/attendance" },
-      { id: "results", label: "Results", icon: <BarChart size={20} />, link: "/student/results" },
+      { id: "attendance", label: "My Attendance", icon: <ClipboardList size={20} />, link: "/student/attendance" },
+      { id: "materials", label: "Study Material", icon: <BookOpen size={20} />, link: "/student/materials" },
+      { id: "assessments", label: "My Tests", icon: <ShieldCheck size={20} />, link: "/student/assessments" },
+      { id: "results", label: "My Scores", icon: <BarChart size={20} />, link: "/student/results" },
+      { id: "group", label: "My Group", icon: <Users size={20} />, link: "/student/group" },
     ],
     admin: [
       { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} />, link: "/admin/dashboard" },
+      { id: "approvals", label: "Approvals", icon: <ShieldCheck size={20} />, link: "/admin/approvals" },
       { id: "users", label: "Users", icon: <User size={20} />, link: "/admin/enrolledUsers" },
-      { id: "departments", label: "Department", icon: <Settings size={20} />, link: "/admin/manageDepartments" },
+      { id: "departments", label: "Departments", icon: <Grid size={20} />, link: "/admin/manageDepartments" },
       { id: "courses", label: "Courses", icon: <BookOpen size={20} />, link: "/admin/manageCourses" },
       { id: "groups", label: "Groups", icon: <Users size={20} />, link: "/admin/manageGroups" },
       { id: "attendance", label: "Attendance", icon: <ClipboardList size={20} />, link: "/admin/manageAttendance" },
       { id: "live", label: "Live Monitoring", icon: <Activity size={20} />, link: "/admin/live-monitoring" },
       { id: "results", label: "Results", icon: <BarChart size={20} />, link: "/admin/results" },
       { id: "logs", label: "Security Logs", icon: <ShieldAlert size={20} />, link: "/admin/logs" },
-      { id: "settings", label: "Settings", icon: <Settings size={20} />, link: "/admin/adminSettings" },
     ]
   };
 
@@ -69,136 +71,89 @@ const Sidebar = ({activeView, selectedCourse, selectedGroup, selectedClass, onNa
     if (user && user.role) {
       setSidebarContent(sideBarItems[user.role] || []);
     }
-  }, [user, selectedCourse, selectedGroup, selectedClass]);
+  }, [user]);
 
-  const isActive = (path) => {
-    return location.pathname === path;
-  };
-
-  // Get appropriate text color based on theme
-  const textColor = isDark
-    ? themeConfig.dark.text
-    : themeConfig.light.text;
-  
-  const secondaryTextColor = isDark
-    ? themeConfig.dark.secondaryText
-    : themeConfig.light.secondaryText;
-
-  // Determine active item style based on theme - using the purple for active items in light theme
-  const activeItemStyle = isDark
-    ? 'bg-[#171D25] border-l-4 border-[#2F955A]'
-    : 'bg-[#6D77D8]/10 border-l-4 border-[#6D77D8]'; // Purple highlight from the dashboard
-
-  // Choose the appropriate button style based on theme
-  const settingsButtonStyle = isDark 
-    ? themeConfig.dark.button.green 
-    : 'bg-[#6D77D8] text-white hover:bg-[#5C66C7] transition-all duration-200';
+  const isActive = (path) => location.pathname === path;
 
   return (
     <div 
       className={`
-        transition-all duration-300 z-100
-        ${collapsed ? "w-20" : "w-64"} 
-        flex flex-col min-h-full
-        ${isDark ? themeConfig.dark.gradientBackground : 'bg-white'}
-        ${isDark ? 'border-r border-[#1E2733]' : 'border-r border-slate-200'}
-        ${!isDark && 'shadow-sm'}
+        transition-all duration-300 ease-in-out z-40 h-screen sticky top-0
+        ${isCollapsed ? "w-20" : "w-72"} 
+        flex flex-col border-r shadow-2xl shadow-black/10
+        ${isDark ? 'bg-[#020617] border-white/5' : 'bg-white border-slate-200/60'}
       `}
     >
       {/* Sidebar Header */}
-      <div className={`
-        p-5 flex justify-between items-center 
-        ${isDark ? 'border-b border-[#1E2733]/50' : 'border-b border-slate-200'}
-      `}>
-        {!collapsed && (
-          <div className={`
-            font-bold text-xl
-            ${isDark ? themeConfig.dark.gradient.text : 'text-[#31B7AF]'}
-          `}>
-            Smart Attend
+      <div className={`p-6 flex justify-between items-center border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+        {!isCollapsed && (
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg shadow-brand-primary/20">
+              <Activity className="text-white" size={18} />
+            </div>
+            <span className={`font-black text-lg tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              SmartAttend
+            </span>
           </div>
         )}
         <button 
-          onClick={() => setCollapsed(!collapsed)} 
+          onClick={toggleCollapse} 
           className={`
-            p-2 rounded-full focus:outline-none 
-            ${isDark ? 'hover:bg-[#171D25]' : 'hover:bg-[#F3F6FA]'}
-            transition-all duration-200
-            ${collapsed ? 'mx-auto' : 'ml-auto'}
+            p-2 rounded-xl transition-all duration-200
+            ${isDark ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-50 text-slate-500'}
+            ${isCollapsed ? 'mx-auto' : 'ml-auto'}
           `}
         >
-          {collapsed ? 
-            <ChevronRight size={20} color={isDark ? iconColor : "#6D77D8"} /> : 
-            <ChevronLeft size={20} color={isDark ? iconColor : "#6D77D8"} />
-          }
+          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
       </div>
 
       {/* Sidebar Menu */}
-      <div className="flex-1 overflow-y-auto py-5 px-3">
-        {user && user.role ? (
-          <ul className="space-y-1">
-            {sidebarContent.map((item) => {
-              const isActiveItem = isActive(item.link);
-              return (
-                <li key={item.id}>
-                  <Link
-                    to={item.link}
-                    className={`
-                      flex items-center px-4 py-3 rounded-lg
-                      transition-all duration-200
-                      ${isActiveItem ? activeItemStyle : ''}
-                      ${isDark 
-                        ? 'hover:bg-[#171D25] hover:border-l-4 hover:border-[#2F955A]/50' 
-                        : 'hover:bg-[#F3F6FA] hover:border-l-4 hover:border-[#31B7AF]/50'
-                      }
-                    `}
-                  >
-                    <div className={`
-                      ${isActiveItem ? (isDark ? 'text-[#2F955A]' : 'text-[#6D77D8]') : (isDark ? 'text-white/70' : 'text-slate-500')}
-                    `}>
-                      {React.cloneElement(item.icon, { 
-                        color: isActiveItem ? (isDark ? iconColor : activeIconColor) : (isDark ? '#FFFFFF99' : '#64748B')
-                      })}
-                    </div>
-                    {!collapsed && (
-                      <span className={`
-                        ml-3 font-medium text-sm truncate
-                        ${isActiveItem 
-                          ? (isDark ? 'text-white' : 'text-[#6D77D8] font-semibold') 
-                          : (isDark ? 'text-white/70' : 'text-slate-500')
-                        }
-                      `}>
-                        {item.label}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className={`text-center p-4 ${secondaryTextColor}`}>
-            Loading menu...
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto py-8 px-4 space-y-1.5 custom-scrollbar">
+        {sidebarContent.map((item) => {
+          const active = isActive(item.link);
+          return (
+            <Link
+              key={item.id}
+              to={item.link}
+              className={`
+                flex items-center ${isCollapsed ? 'justify-center p-3.5' : 'px-5 py-4'} 
+                rounded-2xl transition-all duration-300 group
+                ${active 
+                  ? 'bg-brand-primary/10 text-brand-primary shadow-sm shadow-brand-primary/10' 
+                  : isDark ? 'text-slate-500 hover:bg-white/5 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                }
+              `}
+            >
+              <div className={`transition-all duration-300 group-hover:scale-110 group-hover:rotate-6 ${active ? 'text-brand-primary' : ''}`}>
+                {item.icon}
+              </div>
+              {!isCollapsed && (
+                <span className={`ml-4 text-sm font-black uppercase tracking-[0.1em] transition-colors duration-300`}>
+                  {item.label}
+                </span>
+              )}
+              {active && !isCollapsed && (
+                <div className="ml-auto w-2 h-2 rounded-full bg-brand-primary animate-bloom" />
+              )}
+            </Link>
+          );
+        })}
       </div>
 
-      {/* Bottom Section */}
-      <div className="p-4 mt-auto">
+      {/* Bottom Profile/Settings */}
+      <div className={`p-6 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+        {!isCollapsed && <div className={`mb-4 text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>System</div>}
         <Link 
-          to="/settings"
+          to="/admin/adminSettings"
           className={`
-            flex items-center justify-center ${collapsed ? 'p-3' : 'px-4 py-3'} 
-            rounded-lg transition-all duration-200
-            ${collapsed 
-              ? (isDark ? 'bg-[#171D25]/80 hover:bg-[#171D25]' : 'bg-[#2E4053]/10 hover:bg-[#2E4053]/20')
-              : settingsButtonStyle
-            }
+            flex items-center ${isCollapsed ? 'justify-center p-3.5' : 'px-5 py-4'} 
+            rounded-2xl transition-all duration-300 group
+            ${isDark ? 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-900'}
           `}
         >
-          <Settings size={20} color={iconColor} />
-          {!collapsed && <span className={`ml-3 font-medium ${isDark ? '' : 'text-white'}`}>Settings</span>}
+          <Settings size={20} className="transition-transform duration-300 group-hover:rotate-45" />
+          {!isCollapsed && <span className="ml-4 text-sm font-black uppercase tracking-[0.1em]">Settings</span>}
         </Link>
       </div>
     </div>

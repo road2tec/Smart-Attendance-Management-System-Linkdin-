@@ -45,10 +45,39 @@ export const userService = {
     }
   },
 
-  // Update user
   updateUser: async (userId, userData) => {
     try {
       const response = await axiosInstance.put(`${API_URL}/users/${userId}`, userData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get pending users
+  getPendingUsers: async () => {
+    try {
+      const response = await axiosInstance.get(`${API_URL}/users/pending`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update user status
+  updateUserStatus: async (userId, status) => {
+    try {
+      const response = await axiosInstance.patch(`${API_URL}/users/${userId}/status`, { status });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Delete user
+  deleteUser: async (userId) => {
+    try {
+      const response = await axiosInstance.delete(`${API_URL}/users/${userId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

@@ -8,6 +8,11 @@ cd backend && npm run dev
 # Terminal 2: Start Frontend  
 cd frontend && npm run dev
 
+# Terminal 3: Start AI Microservice
+cd ai_module
+# Note: Ensure virtual environment is activated and models are downloaded first!
+python -m uvicorn app:app --host 0.0.0.0 --port 8000
+
 # Open: http://localhost:5173
 ```
 
@@ -173,6 +178,21 @@ cd frontend && npm run dev
 ```
 ❌ Duplicate data fetching in components
 ✅ Solution: Already fixed in recent updates
+```
+
+### Problem: "AI Microservice fails to install insightface / onnxruntime"
+```
+❌ Windows Long Paths limit or NumPy version mismatch
+✅ Solution:
+   - Downgrade numpy: pip install "numpy<2.0.0"
+   - If MAX_PATH error, move project to a shorter dir path (e.g., C:\SmartAttend)
+```
+
+### Problem: "AI Microservice missing .onnx files"
+```
+❌ Models not found in models/ directory
+✅ Solution:
+   - Run `python download_models.py` in the ai_module directory
 ```
 
 ---

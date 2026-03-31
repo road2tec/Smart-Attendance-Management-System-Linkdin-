@@ -51,6 +51,7 @@ const GroupsManagementPage = () => {
   const [addingStudents, setAddingStudents] = useState(false);
   const [removingStudent, setRemovingStudent] = useState(false);
   const dispatch = useDispatch();
+  const { user } = useSelector(state => state.auth);
 
   // Fetch initial data only once when the component mounts
   useEffect(() => {
@@ -347,13 +348,15 @@ const GroupsManagementPage = () => {
             
             <div className="mt-4 flex justify-between items-center">
               <h2 className={`text-lg font-semibold ${colors.text}`}>Groups</h2>
-              <button
-                onClick={handleCreateGroup}
-                className={colors.button.primary + " px-3 py-2 rounded-md flex items-center"}
-              >
-                <Plus size={16} className="mr-1" />
-                <span>Create Group</span>
-              </button>
+              {user?.role === 'teacher' && (
+                <button
+                  onClick={handleCreateGroup}
+                  className={colors.button.primary + " px-3 py-2 rounded-md flex items-center"}
+                >
+                  <Plus size={16} className="mr-1" />
+                  <span>Create Group</span>
+                </button>
+              )}
             </div>
             
             <GroupsList 

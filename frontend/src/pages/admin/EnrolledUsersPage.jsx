@@ -1,10 +1,11 @@
-// Main Component - EnrolledUsersPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from './../../context/ThemeProvider';
 import { 
   Search, Download, Filter, ChevronDown, 
-  UserCircle, Users, Calendar, ChevronRight, X
+  UserCircle, Users, Calendar, ChevronRight, X, UserPlus, ShieldCheck, GraduationCap, Briefcase, LayoutGrid, ShieldAlert
 } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchTeachers, fetchStudents, updateUser, deleteUser } from '../../app/features/users/userThunks';
 
 // Import components
 import UserTypeToggle from '../../components/admin/EnrolledUsersPageComponents/UserTypeToggle';
@@ -12,267 +13,236 @@ import SearchAndFilters from '../../components/admin/EnrolledUsersPageComponents
 import StudentsView from '../../components/admin/EnrolledUsersPageComponents/StudentsView';
 import TeachersView from '../../components/admin/EnrolledUsersPageComponents/TeachersView';
 import SummaryCard from '../../components/admin/EnrolledUsersPageComponents/SummaryCard';
-import { mockStudents, mockTeachers } from '../../components/admin/EnrolledUsersPageComponents/MockData';
-import { fetchTeachers, fetchStudents } from '../../app/features/users/userThunks';
-import { useDispatch, useSelector } from 'react-redux';
+import EditStudentModal from '../../components/admin/EnrolledUsersPageComponents/EditStudentModal';
+
 const EnrolledUsersPage = () => {
-  const { themeConfig, theme } = useTheme();
-  const currentTheme = themeConfig[theme];
-  
-  const [viewMode, setViewMode] = useState('students'); // 'students' or 'teachers'
+  const { isDark } = useTheme();
+  const dispatch = useDispatch();
+  const { user: currentUser } = useSelector((state) => state.auth);
+  const isTeacher = currentUser?.role === 'teacher';
+
+  const [viewMode, setViewMode] = useState('students');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const usersState = useSelector((state) => state.users);
-  const { 
-    teachers = [], 
-    students = [],
-    loading: { teachers: teachersLoading, students: studentsLoading },
-    error: { teachers: teachersError, students: studentsError }
-  } = usersState;
+  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
+  
+  const { teachers = [], students = [], loading } = useSelector((state) => state.users);
 
-
-
-// ...
-
-const courses = useMemo(() => {
-  return [...new Set(mockStudents.map(student => student.course))];
-}, []); // Empty deps because mockStudents doesn't change
-
-const groups = useMemo(() => {
-  if (selectedCourse) {
-    return [...new Set(mockStudents.filter(s => s.course === selectedCourse).map(s => s.group))];
-  } else {
-    return [...new Set(mockStudents.map(s => s.group))];
-  }
-}, [selectedCourse]); // Depends on selectedCourse
-
-
-    const dispatch = useDispatch();
   useEffect(() => {
-    const fetchInitialData = async () => {
-      
-      
-      if (!teachers.length && !teachersLoading) {
-        dispatch(fetchTeachers());
-      }
-      
-      if (!students.length && !studentsLoading) {
-        dispatch(fetchStudents());
-      }
-      
-    };
-    fetchInitialData();
-    // console.log("teachers in users page:" ,  teachers);
-    
-  }, [dispatch]);
+    if (isTeacher) setViewMode('students');
+  }, [isTeacher]);
 
-  const filteredTeachers = Array.isArray(teachers) 
-    ? teachers.filter(teacher => {
-        return searchTerm === '' || 
-          `${teacher.firstName} ${teacher.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          teacher.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          teacher.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
-      })
-    : [];
-  // Filter teachers based on search
-  const filteredStudents = Array.isArray(students)
-  ? students.filter(student => {
+  useEffect(() => {
+    if (!isTeacher && !teachers.length && !loading.teachers) {
+      dispatch(fetchTeachers());
+    }
+    // Optimization: Check if students already loaded or fetch anyway to ensure fresh data
+    dispatch(fetchStudents());
+  }, [dispatch, isTeacher]);
+
+  const departments = useMemo(() => {
+    if (!students || !Array.isArray(students)) return [];
+    return [...new Set(students.map(student => student.department?.name).filter(Boolean))];
+  }, [students]);
+
+  const groups = useMemo(() => {
+    if (!students || !Array.isArray(students)) return [];
+    const filtered = selectedCourse ? students.filter(s => s.department?.name === selectedCourse) : students;
+    return [...new Set(filtered.map(s => s.group?.name).filter(Boolean))];
+  }, [students, selectedCourse]);
+
+  const filteredTeachers = useMemo(() => (
+    teachers.filter(t => 
+      searchTerm === '' || 
+      `${t.firstName} ${t.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.email.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  ), [teachers, searchTerm]);
+
+  const filteredStudents = useMemo(() => (
+    students.filter(s => {
       const matchesSearch = searchTerm === '' || 
-        `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesCourse = selectedCourse === '' || student.course === selectedCourse;
-      const matchesGroup = selectedGroup === '' || student.group === selectedGroup;
-      
+        `${s.firstName} ${s.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCourse = selectedCourse === '' || s.department?.name === selectedCourse;
+      const matchesGroup = selectedGroup === '' || s.group?.name === selectedGroup;
       return matchesSearch && matchesCourse && matchesGroup;
     })
-  : [];
+  ), [students, searchTerm, selectedCourse, selectedGroup]);
+
+  const currentItems = viewMode === 'students' 
+    ? filteredStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+    : filteredTeachers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   
-  // Pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentStudents = filteredStudents.slice(indexOfFirstItem, indexOfLastItem);
-  const currentTeachers = filteredTeachers.slice(indexOfFirstItem, indexOfLastItem);
-  
-  const totalPages = viewMode === 'students' 
-    ? Math.ceil(filteredStudents.length / itemsPerPage)
-    : Math.ceil(filteredTeachers.length / itemsPerPage);
-  
-  // Reset pagination when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, selectedCourse, selectedGroup, viewMode]);
-  
-  // Handle page changes
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  
-  // Clear filters
-  const clearFilters = () => {
-    setSelectedCourse('');
-    setSelectedGroup('');
-    setSearchTerm('');
+  const totalItems = viewMode === 'students' ? filteredStudents.length : filteredTeachers.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  useEffect(() => setCurrentPage(1), [searchTerm, selectedCourse, selectedGroup, viewMode]);
+
+  const handleEditStudent = (student) => {
+    setEditingStudent(student);
+    setIsEditModalOpen(true);
   };
-  
-  // Navigation to student record
-  const navigateToStudentRecord = (studentId) => {
-    console.log(`Navigating to record for student ID: ${studentId}`);
-    alert(`Navigating to attendance records for student ID: ${studentId}`);
+
+  const handleDeleteStudent = async (student) => {
+    if (window.confirm(`URGENT: Permanent administrative termination of ${student.firstName} ${student.lastName}? This protocol is irreversible.`)) {
+      try {
+        await dispatch(deleteUser(student._id || student.id)).unwrap();
+      } catch (err) {
+        console.error('Termination sequence failure', err);
+      }
+    }
   };
-  
+
+  const handleSaveStudent = async (studentId, updatedData) => {
+    try {
+      await dispatch(updateUser({ userId: studentId, userData: updatedData })).unwrap();
+      setIsEditModalOpen(false);
+      dispatch(fetchStudents());
+    } catch (err) {
+      console.error('Data persistence failed', err);
+    }
+  };
+
   return (
-    <div className={`${currentTheme.background} min-h-screen p-6`}>
-      <div className={`${currentTheme.gradientBackground} rounded-xl p-6 shadow-lg`}>
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className={`text-2xl font-bold ${currentTheme.text}`}>
-            Enrolled Users
-          </h1>
+    <div className={`min-h-screen p-6 sm:p-10 ${isDark ? 'bg-[#0A0E13]' : 'bg-gray-50'}`}>
+      <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in duration-700">
+        
+        {/* Elite Institutional Header */}
+        <div className={`relative p-10 sm:p-16 rounded-[4rem] overflow-hidden border ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
+          <div className={`absolute top-0 right-0 w-[500px] h-[500px] blur-[120px] rounded-full opacity-10 -mr-40 -mt-40 ${isDark ? 'bg-brand-primary' : 'bg-indigo-300'}`}></div>
+          <div className={`absolute bottom-0 left-0 w-64 h-64 blur-[80px] rounded-full opacity-5 -ml-20 -mb-20 ${isDark ? 'bg-emerald-500' : 'bg-emerald-200'}`}></div>
           
-          {/* Active filters indicators */}
-          <ActiveFilters 
-            selectedCourse={selectedCourse}
-            selectedGroup={selectedGroup}
-            searchTerm={searchTerm}
-            setSelectedCourse={setSelectedCourse}
-            setSelectedGroup={setSelectedGroup}
-            setSearchTerm={setSearchTerm}
-            clearFilters={clearFilters}
-            theme={theme}
-            currentTheme={currentTheme}
-          />
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+            <div className="flex items-center gap-8">
+              <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center shadow-2xl skew-x-1 ${isDark ? 'bg-brand-primary text-white shadow-brand-primary/20' : 'bg-indigo-600 text-white shadow-indigo-100'}`}>
+                <Users size={40} strokeWidth={2.5} />
+              </div>
+              <div>
+                <h1 className={`text-4xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                   {isTeacher ? 'Student Registry' : 'Personnel Archives'}
+                </h1>
+                <div className="flex items-center gap-3 mt-2">
+                   <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${isDark ? 'bg-white/5 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
+                      Institutional Bureau
+                   </div>
+                   <div className="h-1 w-1 rounded-full bg-gray-500"></div>
+                   <div className="text-[9px] font-black uppercase tracking-widest text-brand-primary">
+                      {totalItems} Secure Entries
+                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+               <button className={`group flex items-center gap-3 px-8 py-5 rounded-[1.75rem] font-black text-[10px] uppercase tracking-widest transition-all ${isDark ? 'bg-white/5 text-gray-300 hover:bg-white/10' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                  <Download size={16} className="transition-transform group-hover:-translate-y-1" /> 
+                  Export Vault
+               </button>
+            </div>
+          </div>
         </div>
 
-        {/* Toggle between Students and Teachers */}
-        <UserTypeToggle 
-          viewMode={viewMode} 
-          setViewMode={setViewMode} 
-          theme={theme} 
-          currentTheme={currentTheme}
-        />
+        {/* Action Control Center */}
+        <div className={`p-10 rounded-[3.5rem] border space-y-10 ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
+           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-10">
+              {!isTeacher && (
+                <UserTypeToggle viewMode={viewMode} setViewMode={setViewMode} isDark={isDark} />
+              )}
+              
+              <div className="flex-1 max-w-2xl">
+                <SearchAndFilters 
+                  searchTerm={searchTerm} 
+                  setSearchTerm={setSearchTerm}
+                  isFilterOpen={isFilterOpen} 
+                  setIsFilterOpen={setIsFilterOpen}
+                  selectedCourse={selectedCourse} 
+                  setSelectedCourse={setSelectedCourse}
+                  selectedGroup={selectedGroup} 
+                  setSelectedGroup={setSelectedGroup}
+                  courses={departments}
+                  groups={groups}
+                  isDark={isDark}
+                />
+              </div>
+           </div>
 
-        {/* Search and Filters */}
-        <SearchAndFilters 
-          viewMode={viewMode} 
-          searchTerm={searchTerm} 
-          setSearchTerm={setSearchTerm}
-          isFilterOpen={isFilterOpen} 
-          setIsFilterOpen={setIsFilterOpen}
-          selectedCourse={selectedCourse} 
-          setSelectedCourse={setSelectedCourse}
-          selectedGroup={selectedGroup} 
-          setSelectedGroup={setSelectedGroup}
-          courses={courses}
-          groups={groups}
-          clearFilters={clearFilters}
-          theme={theme}
-          currentTheme={currentTheme}
-        />
+           {(searchTerm || selectedCourse || selectedGroup) && (
+              <div className="flex flex-wrap items-center gap-3 pt-6 border-t border-inherit">
+                 <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mr-2">Active Filters:</p>
+                 {searchTerm && (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-primary/10 text-brand-primary text-[10px] font-black uppercase tracking-widest animate-in zoom-in-95">
+                       Query: {searchTerm} <X size={12} className="cursor-pointer hover:rotate-90 transition-transform" onClick={() => setSearchTerm('')} />
+                    </div>
+                 )}
+                 {selectedCourse && (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-widest animate-in zoom-in-95">
+                       Unit: {selectedCourse} <X size={12} className="cursor-pointer hover:rotate-90 transition-transform" onClick={() => setSelectedCourse('')} />
+                    </div>
+                 )}
+                 {selectedGroup && (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest animate-in zoom-in-95">
+                       Cohort: {selectedGroup} <X size={12} className="cursor-pointer hover:rotate-90 transition-transform" onClick={() => setSelectedGroup('')} />
+                    </div>
+                 )}
+                 <button onClick={() => { setSearchTerm(''); setSelectedCourse(''); setSelectedGroup(''); }} className="ml-4 text-[9px] font-black text-rose-500 uppercase tracking-widest hover:underline transition-all">Clear Protocol</button>
+              </div>
+           )}
+        </div>
 
-        {/* Content View */}
-        {viewMode === 'students' ? (
-          <StudentsView 
-            currentStudents={currentStudents}
-            filteredStudents={filteredStudents}
-            selectedCourse={selectedCourse}
-            selectedGroup={selectedGroup}
-            currentPage={currentPage}
-            itemsPerPage={itemsPerPage}
-            totalPages={totalPages}
-            paginate={paginate}
-            navigateToStudentRecord={navigateToStudentRecord}
-            theme={theme}
-            currentTheme={currentTheme}
-          />
-        ) : (
-          <TeachersView 
-            currentTeachers={currentTeachers}
-            filteredTeachers={filteredTeachers}
-            currentPage={currentPage}
-            itemsPerPage={itemsPerPage}
-            totalPages={totalPages}
-            paginate={paginate}
-            theme={theme}
-            currentTheme={currentTheme}
-          />
+        {/* Unified Data Matrix */}
+        <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+          {viewMode === 'students' ? (
+            <StudentsView 
+              currentStudents={currentItems}
+              filteredStudents={filteredStudents}
+              selectedCourse={selectedCourse}
+              selectedGroup={selectedGroup}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              totalPages={totalPages}
+              paginate={setCurrentPage}
+              onEditStudent={handleEditStudent}
+              onDeleteStudent={handleDeleteStudent}
+              isDark={isDark}
+            />
+          ) : (
+            <TeachersView 
+              currentTeachers={currentItems}
+              filteredTeachers={filteredTeachers}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              totalPages={totalPages}
+              paginate={setCurrentPage}
+              isDark={isDark}
+            />
+          )}
+        </div>
+
+        {/* Global Strategy Metrics */}
+        {!isTeacher && (
+          <div className="pt-6">
+            <SummaryCard teachers={teachers} students={students} isDark={isDark} />
+          </div>
         )}
-
-        {/* Summary Card */}
-        <SummaryCard 
-          teachers={mockTeachers}
-          theme={theme}
-          currentTheme={currentTheme}
-        />
       </div>
+
+      <EditStudentModal 
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        student={editingStudent}
+        onSave={handleSaveStudent}
+        isDark={isDark}
+      />
     </div>
   );
 };
 
-// Active Filters Component
-const ActiveFilters = ({ 
-  selectedCourse, 
-  selectedGroup, 
-  searchTerm, 
-  setSelectedCourse, 
-  setSelectedGroup, 
-  setSearchTerm, 
-  clearFilters, 
-  theme, 
-  currentTheme 
-}) => {
-  if (!(selectedCourse || selectedGroup || searchTerm)) return null;
-  
-  return (
-    <div className="flex gap-2 items-center">
-      <span className={`${currentTheme.secondaryText} text-sm`}>Filters:</span>
-      {selectedCourse && (
-        <span className={`${
-          theme === 'dark' 
-            ? 'bg-[#121A22] text-white border border-[#1E2733]' 
-            : 'bg-gray-100 text-gray-800 border border-gray-200'
-          } text-xs px-3 py-1 rounded-full flex items-center gap-1`}>
-          Course: {selectedCourse}
-          <button onClick={() => setSelectedCourse('')}>
-            <X size={14} />
-          </button>
-        </span>
-      )}
-      {selectedGroup && (
-        <span className={`${
-          theme === 'dark' 
-            ? 'bg-[#121A22] text-white border border-[#1E2733]' 
-            : 'bg-gray-100 text-gray-800 border border-gray-200'
-          } text-xs px-3 py-1 rounded-full flex items-center gap-1`}>
-          Group: {selectedGroup}
-          <button onClick={() => setSelectedGroup('')}>
-            <X size={14} />
-          </button>
-        </span>
-      )}
-      {searchTerm && (
-        <span className={`${
-          theme === 'dark' 
-            ? 'bg-[#121A22] text-white border border-[#1E2733]' 
-            : 'bg-gray-100 text-gray-800 border border-gray-200'
-          } text-xs px-3 py-1 rounded-full flex items-center gap-1`}>
-          Search: "{searchTerm}"
-          <button onClick={() => setSearchTerm('')}>
-            <X size={14} />
-          </button>
-        </span>
-      )}
-      <button 
-        onClick={clearFilters}
-        className={`text-xs ${currentTheme.secondaryText} hover:${currentTheme.text} underline`}
-      >
-        Clear all
-      </button>
-    </div>
-  );
-};
-
-export default EnrolledUsersPage;
+export default EnrolledUsersPage;

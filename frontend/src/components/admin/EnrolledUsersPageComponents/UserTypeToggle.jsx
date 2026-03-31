@@ -1,41 +1,31 @@
 // UserTypeToggle.jsx
 import React from 'react';
-import { Users, UserCircle } from 'lucide-react';
+import { GraduationCap, Briefcase } from 'lucide-react';
 
-const UserTypeToggle = ({ viewMode, setViewMode, theme, currentTheme }) => {
+const UserTypeToggle = ({ viewMode, setViewMode, isDark }) => {
   return (
-    <div className="flex mb-6 p-1 rounded-lg w-fit border border-opacity-20" style={{ 
-      borderColor: theme === 'dark' ? '#1E2733' : '#BDC3C7'
-    }}>
+    <div className={`p-1.5 rounded-[1.5rem] flex items-center gap-1 border transition-all ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-100 border-gray-200 shadow-inner'}`}>
       <button
         onClick={() => setViewMode('students')}
-        className={`px-4 py-2 rounded-md transition-all duration-300 ${
-          viewMode === 'students' 
-            ? theme === 'dark' 
-              ? 'bg-[#121A22] text-white' 
-              : 'bg-white text-[#1C2833] shadow-sm' 
-            : `${currentTheme.text} opacity-60`
+        className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+          viewMode === 'students'
+            ? (isDark ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' : 'bg-white text-indigo-600 shadow-sm')
+            : (isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')
         }`}
       >
-        <div className="flex items-center gap-2">
-          <Users size={16} />
-          <span>Students</span>
-        </div>
+        <GraduationCap size={16} />
+        Academic Cohort
       </button>
       <button
         onClick={() => setViewMode('teachers')}
-        className={`px-4 py-2 rounded-md transition-all duration-300 ${
-          viewMode === 'teachers' 
-            ? theme === 'dark' 
-              ? 'bg-[#121A22] text-white' 
-              : 'bg-white text-[#1C2833] shadow-sm' 
-            : `${currentTheme.text} opacity-60`
+        className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+          viewMode === 'teachers'
+            ? (isDark ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' : 'bg-white text-indigo-600 shadow-sm')
+            : (isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')
         }`}
       >
-        <div className="flex items-center gap-2">
-          <UserCircle size={16} />
-          <span>Teachers</span>
-        </div>
+        <Briefcase size={16} />
+        Instructional Faculty
       </button>
     </div>
   );

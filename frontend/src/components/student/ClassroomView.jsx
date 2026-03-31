@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Calendar, Clock, FileText, BookOpen, CheckCircle, AlertCircle, CheckCheck, MapPin } from 'lucide-react';
+import { Calendar, Clock, FileText, BookOpen, CheckCircle, AlertCircle, CheckCheck, MapPin, Award, TrendingUp, Trophy } from 'lucide-react';
 import { useTheme } from '../../context/ThemeProvider';
 import ClassesSection from './ClassesSection';
 import { getClassesByClassroom } from '../../app/features/class/classThunks';
@@ -12,10 +12,21 @@ import {
   verifyFaceEmbedding,
   checkLocationValidityAndMarkPresent,
 } from '../../app/features/attendance/attendanceThunks';
+import { fetchMyResults } from '../../app/features/results/resultsThunks';
+import { useSocket } from '../../context/SocketContext';
+import { LoaderCircle } from 'lucide-react';
 
 // Main ClassroomView Component
-const ClassroomView = ({ selectedClassroom }) => {
-  const { isDark } = useTheme(); // Get isDark from theme context
+const ClassroomView = ({ 
+  selectedClassroom, 
+  onBack, 
+  attendanceWindow, 
+  currentAttendanceStatus, 
+  studentAttendance, 
+  onMarkAttendance 
+}) => {
+  const { isDark, theme, themeConfig } = useTheme(); 
+  const currentTheme = themeConfig[theme];
   const [activeTab, setActiveTab] = useState('schedule');
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -26,6 +37,22 @@ const ClassroomView = ({ selectedClassroom }) => {
   const { classes, isLoading, isError, message } = useSelector((state) => state.classes);
   const { user, isAuthenticated } = useSelector(state => state.auth);
   const { sharedMaterials, currentClassroom } = useSelector((state) => state.classrooms);
+  const { studentResults = [], isLoading: isResultsLoading } = useSelector((state) => state.results);
+  const socket = useSocket();
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Local state for live window updates (overrides initial props/Redux)
+  const [liveWindow, setLiveWindow] = useState(attendanceWindow);
+
+  useEffect(() => {
+    setLiveWindow(attendanceWindow);
+  }, [attendanceWindow]);
+
+  // Keep a local clock ticking to update 'Ongoing' statuses live
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000); // Update every minute
+    return () => clearInterval(timer);
+  }, []);
 
   // Fetch classes when component mounts or classroomId changes.
   // NOTE: getClassroomById is already dispatched by StudentClassroomPortal,
@@ -33,12 +60,47 @@ const ClassroomView = ({ selectedClassroom }) => {
   useEffect(() => {
     if (classroomId) {
       dispatch(getClassesByClassroom(classroomId));
+      dispatch(fetchMyResults());
+
+      // Socket Room Joining
+      if (socket) {
+        socket.emit('join-classroom', classroomId);
+
+        socket.on('window-status', (data) => {
+          if (data.classroomId === classroomId || data.classId) {
+             setLiveWindow(prev => ({
+               ...prev,
+               isOpen: data.isOpen,
+               closesAt: data.closesAt
+             }));
+             // Optionally refetch classes to update the list
+             dispatch(getClassesByClassroom(classroomId));
+          }
+        });
+
+        socket.on('attendance-update', (data) => {
+           // If it's about this classroom, refetch to show 'Checked In' or updated stats
+           dispatch(getClassesByClassroom(classroomId));
+        });
+
+        socket.on('new-result', (data) => {
+           if (data.classroomId === classroomId) {
+             dispatch(fetchMyResults());
+             toast.info(`New result out: ${data.assessmentName}`);
+           }
+        });
+      }
     }
 
     return () => {
       dispatch(reset());
+      if (socket) {
+        socket.off('window-status');
+        socket.off('attendance-update');
+        socket.off('new-result');
+      }
     };
-  }, [dispatch, classroomId]);
+  }, [dispatch, classroomId, socket]);
 
   // Helper function to format time string from HH:MM format
   const formatTimeString = (timeStr) => {
@@ -125,9 +187,9 @@ const ClassroomView = ({ selectedClassroom }) => {
       todayWithEndTime.setHours(endHour, endMinute, 0);
       
       // Determine status based on current time
-      if (now >= todayWithStartTime && now <= todayWithEndTime) {
+      if (currentTime >= todayWithStartTime && currentTime <= todayWithEndTime) {
         return 'ongoing';
-      } else if (now < todayWithStartTime) {
+      } else if (currentTime < todayWithStartTime) {
         return 'upcoming-today';
       } else {
         return 'past';
@@ -166,9 +228,9 @@ const ClassroomView = ({ selectedClassroom }) => {
     todayWithEndTime.setHours(endHour, endMinute, 0);
     
     // Determine the status based on current time
-    if (now >= todayWithStartTime && now <= todayWithEndTime) {
+    if (currentTime >= todayWithStartTime && currentTime <= todayWithEndTime) {
       return 'ongoing';
-    } else if (now < todayWithStartTime) {
+    } else if (currentTime < todayWithStartTime) {
       return 'upcoming-today';
     } else {
       return 'past';
@@ -369,7 +431,7 @@ const ClassroomView = ({ selectedClassroom }) => {
           <div className="mb-2 animate-pulse">
             <CheckCircle className="text-blue-500" size={28} />
           </div>
-          <div className="font-medium">Verifying Face...</div>
+          <div className="font-medium">Checking Face...</div>
         </div>,
         {
           position: "top-right",
@@ -392,8 +454,8 @@ const ClassroomView = ({ selectedClassroom }) => {
         toast.success(
           <div className="flex flex-col items-center">
             <CheckCheck className="mb-2" size={28} />
-            <div className="font-medium">Face Verified!</div>
-            <div className="text-sm">Checking location...</div>
+            <div className="font-medium">Face Confirmed!</div>
+            <div className="text-sm">Checking your location...</div>
           </div>,
           {
             position: "top-right",
@@ -408,7 +470,7 @@ const ClassroomView = ({ selectedClassroom }) => {
         toast.error(
           <div className="flex flex-col items-center">
             <AlertCircle className="mb-2" size={28} />
-            <div className="font-medium">Face Verification Failed</div>
+            <div className="font-medium">Couldn't confirm face</div>
             <div className="text-sm">Please try again</div>
           </div>,
           {
@@ -431,7 +493,7 @@ const ClassroomView = ({ selectedClassroom }) => {
       toast.error(
         <div className="flex flex-col items-center">
           <AlertCircle className="mb-2" size={28} />
-          <div className="font-medium">Face Verification Failed</div>
+          <div className="font-medium">Couldn't confirm face</div>
           <div className="text-sm">{error  || error?.message || "An unexpected error occurred"}</div>
         </div>,
         {
@@ -457,7 +519,7 @@ const ClassroomView = ({ selectedClassroom }) => {
           <div className="mb-2 animate-pulse">
             <MapPin className="text-green-500" size={28} />
           </div>
-          <div className="font-medium">Checking Location...</div>
+          <div className="font-medium">Checking your location...</div>
         </div>,
         {
           position: "top-right",
@@ -471,7 +533,7 @@ const ClassroomView = ({ selectedClassroom }) => {
 
       // Call the actual location verification & attendance marking
       const result = await dispatch(
-        checkLocationValidityAndMarkPresent({ classId, location })
+        checkLocationValidityAndMarkPresent({ classId, location, skipWindowCheck: true })
       ).unwrap();
       
       // Dismiss the location checking toast
@@ -484,7 +546,7 @@ const ClassroomView = ({ selectedClassroom }) => {
         toast.error(
           <div className="flex flex-col items-center">
             <AlertCircle className="mb-2" size={28} />
-            <div className="font-medium">Location Verification Failed</div>
+            <div className="font-medium">Location check failed</div>
             <div className="text-sm">You must be in the classroom to mark attendance</div>
           </div>,
           {
@@ -506,7 +568,7 @@ const ClassroomView = ({ selectedClassroom }) => {
       toast.error(
         <div className="flex flex-col items-center">
           <AlertCircle className="mb-2" size={28} />
-          <div className="font-medium">Location Verification Failed</div>
+          <div className="font-medium">Location check failed</div>
           <div className="text-sm">{error || error?.message || "An unexpected error occurred"}</div>
         </div>,
         {
@@ -530,7 +592,7 @@ const ClassroomView = ({ selectedClassroom }) => {
     toast.success(
       <div className="flex flex-col items-center">
         <CheckCircle className="mb-2" size={28} />
-        <div className="font-medium">Attendance Marked!</div>
+        <div className="font-medium">Attendance Success!</div>
         <div className="text-sm">{classTitle || 'Class'}</div>
       </div>,
       {
@@ -665,17 +727,20 @@ const ClassroomView = ({ selectedClassroom }) => {
   // Early return for critical errors
   if (!selectedClassroom) {
     return (
-      <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} flex items-center justify-center`}>
-        <div className={`p-8 text-center ${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow`}>
-          <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-500" />
-          <p>No classroom selected</p>
+      <div className={`min-h-[60vh] ${currentTheme.card} flex items-center justify-center rounded-2xl border ${isDark ? 'border-[#1E2733]/50' : 'border-gray-100'} shadow-sm`}>
+        <div className={`p-10 text-center ${currentTheme.card} rounded-xl`}>
+          <div className="bg-red-50 dark:bg-red-500/10 p-4 rounded-full inline-flex mb-4">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+          <p className={`text-lg font-medium ${currentTheme.text}`}>No classroom selected</p>
+          <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Please go back and select a valid classroom.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`w-full font-sans animate-in fade-in duration-500`}>
       {/* Toast Container - added with higher z-index */}
       <ToastContainer 
         position="top-right"
@@ -687,88 +752,96 @@ const ClassroomView = ({ selectedClassroom }) => {
         pauseOnFocusLoss
         draggable
         pauseOnHover
+        toastClassName={`${isDark ? 'bg-[#121A22] text-white border border-[#1E2733]' : 'bg-white text-gray-900 border border-gray-100'}`}
         style={{ zIndex: 9999 }} // High z-index to ensure visibility
       />
 
       {/* Header */}
-      <div className={`sticky top-0 z-10 p-4 ${isDark ? 'bg-gray-800' : 'bg-white'} border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} shadow-sm`}>
-        <div className="container mx-auto">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-xl font-bold">
-                {selectedClassroom?.course?.name || "Programming Course"}
-              </h1>
-              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                {selectedClassroom?.department?.name || "Computer Science"} • {selectedClassroom?.assignedTeacher?.firstName || "John"} {selectedClassroom?.assignedTeacher?.lastName || "Doe"}
-              </p>
-            </div>
-            <button 
-              className={`px-3 py-1 rounded-lg text-sm ${isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-              Back
-            </button>
+      <div className={`relative overflow-hidden mb-8 rounded-2xl ${isDark ? 'bg-gradient-to-r from-[#121A22] to-[#0A0E13] border border-[#1E2733]' : 'bg-gradient-to-r from-indigo-50 to-white border border-indigo-100'} shadow-sm p-6 md:p-8`}>
+        <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${isDark ? 'from-brand-primary/20 to-purple-500/10' : 'from-indigo-400/20 to-purple-400/10'} rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none`}></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className={`text-2xl md:text-3xl font-extrabold mb-1 ${currentTheme.text}`}>
+              {selectedClassroom?.course?.name || "Programming Course"}
+            </h1>
+            <p className={`text-sm md:text-base font-medium ${isDark ? 'text-brand-light' : 'text-indigo-600'}`}>
+              {selectedClassroom?.department?.name || "Computer Science"} <span className="text-gray-400 mx-2">•</span> Instructor: {selectedClassroom?.assignedTeacher?.firstName || "John"} {selectedClassroom?.assignedTeacher?.lastName || "Doe"}
+            </p>
           </div>
+        </div>
 
-          {/* Tabs */}
-          <div className="flex mt-4 space-x-4 border-b border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => setActiveTab('schedule')}
-              className={`pb-2 px-1 ${activeTab === 'schedule' 
-                ? (isDark ? 'text-blue-400 border-b-2 border-blue-400' : 'text-blue-600 border-b-2 border-blue-600') 
-                : (isDark ? 'text-gray-400' : 'text-gray-500')}`}
-            >
-              <div className="flex items-center">
-                <Calendar className="w-4 h-4 mr-1" />
-                <span>Schedule</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('notes')}
-              className={`pb-2 px-1 ${activeTab === 'notes' 
-                ? (isDark ? 'text-purple-400 border-b-2 border-purple-400' : 'text-purple-600 border-b-2 border-purple-600') 
-                : (isDark ? 'text-gray-400' : 'text-gray-500')}`}
-            >
-              <div className="flex items-center">
-                <FileText className="w-4 h-4 mr-1" />
-                <span>Notes</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('assignments')}
-              className={`pb-2 px-1 ${activeTab === 'assignments' 
-                ? (isDark ? 'text-amber-400 border-b-2 border-amber-400' : 'text-amber-600 border-b-2 border-amber-600') 
-                : (isDark ? 'text-gray-400' : 'text-gray-500')}`}
-            >
-              <div className="flex items-center">
-                <BookOpen className="w-4 h-4 mr-1" />
-                <span>Assignments</span>
-              </div>
-            </button>
-          </div>
+        {/* Floating Pill Tabs */}
+        <div className={`flex mt-8 p-1.5 inline-flex rounded-xl ${isDark ? 'bg-[#0A0E13]/80 border border-[#1E2733]' : 'bg-gray-100/80 border border-gray-200/50'} backdrop-blur-md`}>
+          <button
+            onClick={() => setActiveTab('schedule')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'schedule' 
+              ? (isDark ? 'bg-[#1E2733] text-white shadow-sm' : 'bg-white text-indigo-700 shadow-sm') 
+              : (isDark ? 'text-gray-400 hover:text-white hover:bg-[#121A22]' : 'text-gray-500 hover:text-gray-800 hover:bg-white/50')}`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>Class timing</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('notes')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'notes' 
+              ? (isDark ? 'bg-[#1E2733] text-white shadow-sm' : 'bg-white text-indigo-700 shadow-sm') 
+              : (isDark ? 'text-gray-400 hover:text-white hover:bg-[#121A22]' : 'text-gray-500 hover:text-gray-800 hover:bg-white/50')}`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Materials</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('assignments')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'assignments' 
+              ? (isDark ? 'bg-[#1E2733] text-white shadow-sm' : 'bg-white text-indigo-700 shadow-sm') 
+              : (isDark ? 'text-gray-400 hover:text-white hover:bg-[#121A22]' : 'text-gray-500 hover:text-gray-800 hover:bg-white/50')}`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>My Results</span>
+            <span>Assignments</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('results')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'results' 
+              ? (isDark ? 'bg-[#1E2733] text-white shadow-sm' : 'bg-white text-indigo-700 shadow-sm') 
+              : (isDark ? 'text-gray-400 hover:text-white hover:bg-[#121A22]' : 'text-gray-500 hover:text-gray-800 hover:bg-white/50')}`}
+          >
+            <Trophy className="w-4 h-4" />
+            <span>Results</span>
+          </button>
         </div>
       </div>
 
-
       {/* Content */}
-      <div className="container mx-auto py-6 px-4">
+      <div className="py-2">
         {isLoading ? (
-          <div className={`p-8 text-center ${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow`}>
-            <p>Loading classes...</p>
+          <div className={`${currentTheme.card} p-12 text-center rounded-2xl border ${isDark ? 'border-[#1E2733]/50' : 'border-gray-100'}`}>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-primary mx-auto mb-4"></div>
+            <p className={`font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading class schedule...</p>
           </div>
         ) : isError ? (
-          <div className={`p-8 text-center ${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow`}>
-            <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-500" />
-            <p>Error loading classes: {message}</p>
+          <div className={`${currentTheme.card} p-12 text-center rounded-2xl border border-red-200 dark:border-red-900/30`}>
+            <div className="bg-red-50 dark:bg-red-500/10 p-4 rounded-full inline-flex mb-4">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <p className={`font-semibold text-lg ${currentTheme.text}`}>Error loading classes</p>
+            <p className={`text-sm mt-1 text-red-500`}>{message || "Something went wrong."}</p>
           </div>
         ) : activeTab === 'schedule' ? (
-          <div className="space-y-6">
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
             {/* Next 24 Hours Classes */}
-            <div className={`p-4 mb-6 rounded-lg ${isDark ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-100'}`}>
-              <h2 className="text-lg font-semibold mb-2 flex items-center">
-                <Clock className="w-5 h-5 mr-2 text-blue-500" />
+            <div className={`p-6 md:p-8 rounded-2xl relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-[#121A22] to-[#0A0E13] border border-blue-900/40' : 'bg-gradient-to-br from-blue-50 to-indigo-50/30 border border-blue-100'} shadow-sm`}>
+              <div className={`absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none`}></div>
+              
+              <h2 className={`text-lg font-bold tracking-tight mb-6 flex items-center ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>
+                <div className="p-2 bg-blue-500/20 rounded-lg mr-3">
+                  <Clock className="w-5 h-5 text-blue-500" />
+                </div>
                 Classes in the Next 24 Hours
               </h2>
-              <div className="space-y-2">
+              
+              <div className="space-y-4 relative z-10">
                 {processedClasses.filter(c => 
                   (c.status === 'ongoing' || c.status === 'upcoming') && 
                   (c.date === 'Today' || c.date === 'Tomorrow')
@@ -777,54 +850,78 @@ const ClassroomView = ({ selectedClassroom }) => {
                     (c.status === 'ongoing' || c.status === 'upcoming') && 
                     (c.date === 'Today' || c.date === 'Tomorrow')
                   ).map(classItem => (
-                    <div key={classItem.id} className={`p-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-sm border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <div key={classItem.id} className={`p-5 rounded-xl transition-all hover:-translate-y-1 ${isDark ? 'bg-[#1A2520]/40 border border-[#2F955A]/30 shadow-lg shadow-black/20' : 'bg-white border border-gray-100 shadow-sm hover:shadow-md'}`}>
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-medium">{classItem.title}</h3>
-                          <div className="flex items-center mt-1 text-sm">
-                            <Clock className={`w-4 h-4 mr-1 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
-                            <span>{classItem.time}</span>
-                          </div>
-                          <div className="flex items-center mt-1 text-sm">
-                            <Calendar className={`w-4 h-4 mr-1 ${isDark ? 'text-green-400' : 'text-green-500'}`} />
-                            <span>{classItem.date}</span>
-                          </div>
-                          <div className="flex items-center mt-1 text-sm">
-                            <div className={`w-2 h-2 rounded-full mr-1 ${classItem.originalData.schedule?.isExtraClass ? 'bg-purple-500' : 'bg-gray-500'}`}></div>
-                            <span>{classItem.originalData.schedule?.isExtraClass ? 'Extra class' : 'Regular schedule'}</span>
+                          <h3 className={`font-bold text-lg mb-2 ${currentTheme.text}`}>{classItem.title}</h3>
+                          <div className="flex flex-wrap items-center gap-3 text-sm">
+                            <div className={`flex items-center px-2.5 py-1 rounded-md ${isDark ? 'bg-[#121A22] text-brand-light' : 'bg-indigo-50 text-indigo-700'}`}>
+                              <Clock className="w-3.5 h-3.5 mr-1.5" />
+                              <span className="font-medium">{classItem.time}</span>
+                            </div>
+                            <div className={`flex items-center px-2.5 py-1 rounded-md ${isDark ? 'bg-[#121A22] text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>
+                              <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                              <span className="font-medium">{classItem.date}</span>
+                            </div>
+                            {classItem.originalData.schedule?.isExtraClass && (
+                              <div className={`flex items-center px-2.5 py-1 rounded-md ${isDark ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700'}`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 animate-pulse"></span>
+                                <span className="font-semibold text-xs uppercase tracking-wider">Extra Class</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className={`px-2 py-1 rounded text-xs font-medium ${
+                        <div className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${
                           classItem.status === 'ongoing' 
-                            ? (isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700') 
-                            : (isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700')
+                            ? (liveWindow?.isOpen 
+                                ? (isDark ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse' : 'bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm')
+                                : (isDark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-amber-100 text-amber-700 border border-amber-200'))
+                            : (isDark ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-blue-100 text-blue-700 border border-blue-200')
                         }`}>
-                          {classItem.status === 'ongoing' ? 'Ongoing' : 'Upcoming'}
+                          {classItem.status === 'ongoing' ? (
+                            liveWindow?.isOpen ? (
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+                                Attendance Open
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1.5 text-[10px]">
+                                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                                Ongoing
+                              </span>
+                            )
+                          ) : 'Upcoming'}
                         </div>
                       </div>
-                      <div className="mt-3 flex justify-between items-center">
-                        <div className="text-sm">
-                          <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                            {classItem.room}
-                          </span>
+                      
+                      <div className="mt-5 pt-4 border-t border-gray-100 dark:border-[#1E2733]/50 flex justify-between items-center">
+                        <div className={`flex items-center text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                         </div>
                         {classItem.status === 'ongoing' && (
                           <button 
                             onClick={() => openAttendanceModal(classItem)}
-                            className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                              isDark ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-800/30' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            disabled={currentAttendanceStatus?.status}
+                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm ${
+                              currentAttendanceStatus?.status 
+                                ? 'bg-emerald-500/20 text-emerald-500 cursor-default border border-emerald-500/30'
+                                : isDark 
+                                  ? 'bg-brand-primary text-white hover:bg-brand-light hover:shadow-[0_0_15px_rgba(80,110,229,0.4)]' 
+                                  : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md'
                             }`}
                           >
-                            Mark Attendance
+                            {currentAttendanceStatus?.status ? 'Attendance Marked' : 'Mark Attendance'}
                           </button>
                         )}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className={`p-8 text-center ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg`}>
-                    <Clock className={`w-12 h-12 mx-auto mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                    <p className="font-medium">No classes scheduled in the next 24 hours</p>
+                  <div className={`p-10 text-center ${isDark ? 'bg-[#0A0E13]/50 border border-[#1E2733]/50' : 'bg-white/50 border border-white'} rounded-xl backdrop-blur-sm`}>
+                    <div className={`w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center ${isDark ? 'bg-[#121A22]' : 'bg-blue-100/50'}`}>
+                      <Clock className={`w-6 h-6 ${isDark ? 'text-gray-500' : 'text-blue-400'}`} />
+                    </div>
+                    <p className={`font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>No imminent classes</p>
+                    <p className={`text-sm mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>You have a clear schedule for the next 24 hours.</p>
                   </div>
                 )}
               </div>
@@ -921,6 +1018,114 @@ const ClassroomView = ({ selectedClassroom }) => {
                 </p>
               </div>
             )}
+          </div>
+        ) : activeTab === 'assignments' ? (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className={`p-6 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
+              <h2 className="text-lg font-semibold mb-4">Assignments</h2>
+              <div className={`p-8 text-center ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg`}>
+                <BookOpen className={`w-12 h-12 mx-auto mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                <p className="font-medium">No assignments available for this course yet</p>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'results' ? (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Results Header / Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={`p-6 rounded-2xl border ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
+                    <Trophy size={20} />
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Overall Performance</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <h3 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {studentResults.filter(r => r.classroom?._id === classroomId || r.classroom === classroomId).length > 0
+                      ? (studentResults.filter(r => r.classroom?._id === classroomId || r.classroom === classroomId).reduce((acc, curr) => acc + (curr.obtainedMarks / curr.totalMarks), 0) / studentResults.filter(r => r.classroom?._id === classroomId || r.classroom === classroomId).length * 100).toFixed(1)
+                      : '0.0'}%
+                  </h3>
+                  <span className="text-xs font-bold text-gray-500">Subject GPA</span>
+                </div>
+              </div>
+
+              <div className={`p-6 rounded-2xl border ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
+                    <CheckCheck size={20} />
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Assessments Passed</span>
+                </div>
+                <h3 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  {studentResults.filter(r => (r.classroom?._id === classroomId || r.classroom === classroomId) && (r.obtainedMarks/r.totalMarks >= 0.4)).length}
+                </h3>
+              </div>
+
+              <div className={`p-6 rounded-2xl border ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500">
+                    <TrendingUp size={20} />
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Total Evaluations</span>
+                </div>
+                <h3 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  {studentResults.filter(r => r.classroom?._id === classroomId || r.classroom === classroomId).length}
+                </h3>
+              </div>
+            </div>
+
+            {/* Results List */}
+            <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
+              <div className="px-6 py-4 border-b border-inherit">
+                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Detailed Scores</h3>
+              </div>
+              <div className="divide-y divide-inherit">
+                {studentResults.filter(r => r.classroom?._id === classroomId || r.classroom === classroomId).length > 0 ? (
+                  studentResults.filter(r => r.classroom?._id === classroomId || r.classroom === classroomId).map((result) => {
+                    const isPending = result.remarks === 'Awaiting Grading - Student Work Submitted' || (result.obtainedMarks === 0 && result.remarks?.includes('Awaiting'));
+                    return (
+                      <div key={result._id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <p className={`font-black text-sm uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{result.assessmentName}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                               {result.examType}
+                             </span>
+                             <span className="text-[10px] text-gray-500">{new Date(result.publishedAt || result.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-6">
+                           <div className="text-right">
+                              {isPending ? (
+                                <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${isDark ? 'bg-amber-500/10 text-amber-500' : 'bg-amber-50 text-amber-600'}`}>
+                                   Awaiting Grading
+                                </span>
+                              ) : (
+                                <>
+                                  <div className="flex items-baseline gap-1 justify-end">
+                                    <span className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{result.obtainedMarks}</span>
+                                    <span className="text-xs font-bold text-gray-500">/ {result.totalMarks}</span>
+                                  </div>
+                                  <p className={`text-[10px] font-black uppercase tracking-widest ${result.obtainedMarks/result.totalMarks >= 0.4 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                    {((result.obtainedMarks / result.totalMarks) * 100).toFixed(1)}% — {result.obtainedMarks/result.totalMarks >= 0.4 ? 'PASSED' : 'FAILED'}
+                                  </p>
+                                </>
+                              )}
+                           </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="p-12 text-center">
+                    <Trophy size={48} className="mx-auto mb-4 text-gray-300 opacity-20" />
+                    <p className={`text-sm font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>No evaluation records found yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         ) : (
           <div className={`p-6 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>

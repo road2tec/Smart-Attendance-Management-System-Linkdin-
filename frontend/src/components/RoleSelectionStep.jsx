@@ -1,37 +1,64 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { School, User } from 'lucide-react';
+import { GraduationCap, Users, ArrowRight } from 'lucide-react';
+import { useTheme } from '../context/ThemeProvider';
 
-const RoleSelectionStep = ({ handleRoleSelect, getThemedClass, theme }) => {
+const RoleSelectionStep = ({ handleRoleSelect }) => {
+  const { isDark } = useTheme();
+
+  const roles = [
+    {
+      id: 'student',
+      title: 'Student',
+      description: 'Access your coursework and track your attendance.',
+      icon: GraduationCap,
+      color: 'from-purple-500 to-purple-600'
+    },
+    {
+      id: 'teacher',
+      title: 'Teacher',
+      description: 'Manage your classes and verify student presence.',
+      icon: Users,
+      color: 'from-blue-500 to-blue-600'
+    }
+  ];
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="flex flex-col items-center space-y-4 w-full"
+      className="space-y-8 w-full"
     >
-      <h2 className={`text-xl font-semibold ${getThemedClass('text-white', 'text-blue-800')} mb-4`}>Choose your role</h2>
-      
-      <div className="flex gap-6">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className={`flex flex-col items-center justify-center p-4 ${getThemedClass('bg-slate-800/30 border-green-500/30 hover:border-green-500/50 hover:bg-slate-700/40', 'bg-white border-green-600/40 hover:border-green-600/70 hover:bg-blue-50')} rounded-lg border w-32 h-32 transition-all`}
-          onClick={() => handleRoleSelect('student')}
-        >
-          <School className="text-green-500 mb-2" size={32} />
-          <span className={getThemedClass('text-white', 'text-blue-800')}>Student</span>
-        </motion.button>
-        
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className={`flex flex-col items-center justify-center p-4 ${getThemedClass('bg-slate-800/30 border-green-500/30 hover:border-green-500/50 hover:bg-slate-700/40', 'bg-white border-green-600/40 hover:border-green-600/70 hover:bg-blue-50')} rounded-lg border w-32 h-32 transition-all`}
-          onClick={() => handleRoleSelect('teacher')}
-        >
-          <User className="text-green-500 mb-2" size={32} />
-          <span className={getThemedClass('text-white', 'text-blue-800')}>Teacher</span>
-        </motion.button>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+        {roles.map((item) => (
+          <motion.button
+            key={item.id}
+            whileHover={{ y: -5, shadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleRoleSelect(item.id)}
+            className={`group relative flex flex-col p-8 rounded-[32px] border-2 transition-all text-left ${
+              isDark 
+                ? 'bg-white/5 border-white/5 hover:border-brand-primary/40' 
+                : 'bg-slate-50 border-slate-100 hover:border-brand-primary/20 hover:bg-white shadow-sm'
+            }`}
+          >
+            <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white mb-6 shadow-lg`}>
+              <item.icon size={32} />
+            </div>
+            
+            <h3 className={`text-2xl font-black mb-3 tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {item.title}
+            </h3>
+            <p className={`text-sm font-bold leading-relaxed mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {item.description}
+            </p>
+
+            <div className="mt-auto flex items-center gap-2 text-brand-primary font-black uppercase tracking-widest text-xs group-hover:gap-4 transition-all">
+              Select Role <ArrowRight size={14} />
+            </div>
+          </motion.button>
+        ))}
       </div>
     </motion.div>
   );

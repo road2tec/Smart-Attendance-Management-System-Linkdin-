@@ -1,155 +1,170 @@
 import React from 'react';
-import { useTheme } from '../../../context/ThemeProvider';
-import { Users, Book, CalendarCheck, Clock, Bell, ArrowUpRight, Shield } from 'lucide-react';
+import { Users, Book, CalendarCheck, Clock, Bell, ArrowUpRight, Shield, Zap } from 'lucide-react';
 
 export default function HeroSection({
   stats,
   progress,
   notifications = [],
   systemStatus,
+  isDark
 }) {
-  const { themeConfig, theme } = useTheme();
-  const colors = themeConfig[theme];
-  
-  // Get current date for display
-  const today = new Date();
-  const formattedDate = today.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
   const formatCount = (value) => new Intl.NumberFormat().format(Number(value || 0));
 
   const quickStats = [
-    { icon: <Users size={18} />, label: 'Total Students', value: formatCount(stats?.totalStudents) },
-    { icon: <Book size={18} />, label: 'Active Courses', value: formatCount(stats?.activeCourses) },
-    { icon: <CalendarCheck size={18} />, label: 'Today\'s Classes', value: formatCount(stats?.todaysClasses) },
-    { icon: <Clock size={18} />, label: 'Avg. Attendance', value: `${Math.round(Number(stats?.averageAttendance || 0))}%` },
+    { 
+      icon: <Users size={22} />, 
+      label: 'Global Cohort', 
+      value: formatCount(stats?.totalStudents),
+      color: 'text-brand-primary'
+    },
+    { 
+      icon: <Book size={22} />, 
+      label: 'Active Syllabus', 
+      value: formatCount(stats?.activeCourses),
+      color: 'text-emerald-400'
+    },
+    { 
+      icon: <CalendarCheck size={22} />, 
+      label: 'Live Sessions', 
+      value: formatCount(stats?.todaysClasses),
+      color: 'text-amber-400'
+    },
+    { 
+      icon: <Zap size={22} />, 
+      label: 'Avg Velocity', 
+      value: `${Math.round(Number(stats?.averageAttendance || 0))}%`,
+      color: 'text-rose-400'
+    },
   ];
 
   return (
-    <div className="mb-10">
-      {/* Top Section with Welcome and Date */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <div>
-          <h1 className={`text-3xl font-bold ${colors.gradient.text}`}>Admin Dashboard</h1>
-          <p className={`${colors.secondaryText} mt-2`}>Welcome back! Here's what's happening today.</p>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      {/* Primary Analytics Grid */}
+      <div className={`lg:col-span-8 p-8 sm:p-10 rounded-[3rem] border backdrop-blur-md ${
+        isDark ? 'bg-[#121A22]/50 border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'
+      }`}>
+        <div className="flex items-center justify-between mb-10">
+           <div>
+              <h2 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Operational Pulse</h2>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Real-time institutional telemetry</p>
+           </div>
+           <div className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl ${isDark ? 'bg-[#1E2733]/50 text-brand-primary' : 'bg-indigo-50 text-indigo-600'}`}>
+              <Clock size={14} className="animate-spin-slow" />
+              <span className="text-xs font-black uppercase tracking-widest">Live Feed</span>
+           </div>
         </div>
-        <div className={`${colors.card} px-4 py-2 rounded-lg mt-4 md:mt-0 flex items-center`}>
-          <CalendarCheck size={18} className={`${colors.icon} mr-2`} />
-          <span className={`${colors.text} text-sm font-medium`}>{formattedDate}</span>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {quickStats.map((stat, index) => (
+            <div key={index} className={`p-6 rounded-[2rem] border transition-all duration-500 hover:scale-105 ${
+              isDark ? 'bg-[#1E2733]/30 border-[#1E2733]' : 'bg-gray-50/50 border-gray-100'
+            }`}>
+              <div className={`${isDark ? stat.color : 'text-indigo-600'} mb-4`}>
+                {stat.icon}
+              </div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{stat.label}</p>
+              <div className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{stat.value}</div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          {/* Progress Card */}
+          <div className={`p-6 rounded-3xl border ${
+            isDark ? 'bg-brand-primary/5 border-brand-primary/20' : 'bg-indigo-50/50 border-indigo-200'
+          }`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-brand-light/60' : 'text-indigo-600'}`}>
+                {progress?.title || 'Maturity Index'}
+              </h3>
+              <div className={`p-1.5 rounded-lg ${isDark ? 'bg-brand-primary text-white' : 'bg-indigo-600 text-white'}`}>
+                 <ArrowUpRight size={14} />
+              </div>
+            </div>
+            <p className={`text-sm font-medium leading-relaxed mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              {progress?.description}
+            </p>
+            <div className="space-y-2">
+               <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  <span>Efficiency Threshold</span>
+                  <span>{progress?.percent}%</span>
+               </div>
+               <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                 <div
+                   className={`h-full rounded-full transition-all duration-1000 ${isDark ? 'bg-brand-primary shadow-[0_0_15px_rgba(46,103,255,0.5)]' : 'bg-indigo-600'}`}
+                   style={{ width: `${progress?.percent}%` }}
+                 ></div>
+               </div>
+            </div>
+          </div>
+          
+          {/* System Integrity Card */}
+          <div className={`p-6 rounded-3xl border ${
+            isDark ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50/50 border-emerald-200'
+          }`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-emerald-400/60' : 'text-emerald-600'}`}>
+                {systemStatus?.title || 'System Stability'}
+              </h3>
+              <Shield size={16} className={isDark ? 'text-emerald-400' : 'text-emerald-600'} />
+            </div>
+            <p className={`text-sm font-medium leading-relaxed mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              {systemStatus?.summary}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {systemStatus?.badges?.map((badge, idx) => (
+                <span
+                  key={idx}
+                  className={`px-3 py-1 text-[9px] font-black uppercase tracking-tighter rounded-full ${
+                    isDark ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-100 text-emerald-700'
+                  }`}
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
       
-      {/* Enhanced Hero Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Quick Stats */}
-        <div className={`${colors.card} p-6 rounded-xl col-span-1 lg:col-span-2`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className={`${colors.text} text-lg font-semibold`}>Overview</h2>
-            <div className={`${theme === 'dark' ? 'bg-[#1E2733]/50' : 'bg-blue-100'} px-3 py-1 rounded-full`}>
-              <span className={`text-sm font-medium ${theme === 'dark' ? 'text-blue-400' : 'text-blue-700'}`}>
-                Today
-              </span>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {quickStats.map((stat, index) => (
-              <div key={index} className={`${theme === 'dark' ? 'bg-[#121A22]/40' : 'bg-gray-50'} p-4 rounded-lg`}>
-                <div className="flex items-center mb-2">
-                  <div className={`${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'} mr-2`}>
-                    {stat.icon}
-                  </div>
-                  <span className={`${colors.secondaryText} text-xs`}>{stat.label}</span>
-                </div>
-                <div className={`${colors.text} text-xl font-bold`}>{stat.value}</div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Status Cards Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-            {/* Student Progress */}
-            <div className={`${theme === 'dark' ? 'bg-[#1E2733]/30' : 'bg-orange-50'} p-4 rounded-lg border ${theme === 'dark' ? 'border-[#F2683C]/30' : 'border-orange-200'}`}>
-              <div className="flex justify-between items-center mb-2">
-                <h3 className={`${theme === 'dark' ? 'text-orange-400' : 'text-orange-700'} text-sm font-medium`}>
-                  {progress?.title || 'Student Progress'}
-                </h3>
-                <ArrowUpRight size={16} className={`${theme === 'dark' ? 'text-orange-400' : 'text-orange-600'}`} />
-              </div>
-              <p className={`${colors.text} text-sm`}>{progress?.description || 'No student progress data is available yet.'}</p>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                <div
-                  className={`${theme === 'dark' ? 'bg-orange-500' : 'bg-orange-600'} h-2.5 rounded-full`}
-                  style={{ width: `${Math.min(Math.max(Number(progress?.percent || 0), 0), 100)}%` }}
-                ></div>
-              </div>
-            </div>
-            
-            {/* Server Status */}
-            <div className={`${theme === 'dark' ? 'bg-[#1E2733]/30' : 'bg-green-50'} p-4 rounded-lg border ${theme === 'dark' ? 'border-[#2F955A]/30' : 'border-green-200'}`}>
-              <div className="flex justify-between items-center mb-2">
-                <h3 className={`${theme === 'dark' ? 'text-green-400' : 'text-green-700'} text-sm font-medium`}>
-                  {systemStatus?.title || 'Data Sync Status'}
-                </h3>
-                <Shield size={16} className={`${theme === 'dark' ? 'text-green-400' : 'text-green-600'}`} />
-              </div>
-              <p className={`${colors.text} text-sm`}>{systemStatus?.summary || 'Dashboard data is syncing.'}</p>
-              <div className="flex mt-2 gap-2">
-                {(systemStatus?.badges?.length ? systemStatus.badges : ['Waiting for sync']).map((badge) => (
-                  <span
-                    key={badge}
-                    className={`inline-flex px-2 py-1 text-xs rounded-full ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800'}`}
-                  >
-                    {badge}
-                  </span>
-                ))}
-              </div>
-            </div>
+      {/* Interaction & Notification Panel */}
+      <div className={`lg:col-span-4 p-8 rounded-[3rem] border backdrop-blur-md flex flex-col ${
+        isDark ? 'bg-[#121A22]/50 border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'
+      }`}>
+        <div className="flex items-center justify-between mb-8">
+          <h2 className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Broadcasts</h2>
+          <div className={`p-2 rounded-xl scale-75 ${isDark ? 'bg-[#1E2733] text-brand-primary' : 'bg-indigo-100 text-indigo-600'}`}>
+            <Bell size={20} className="animate-bounce" />
           </div>
         </div>
         
-        {/* Notifications Panel */}
-        <div className={`${colors.card} p-6 rounded-xl`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className={`${colors.text} text-lg font-semibold`}>Recent Notifications</h2>
-            <div className={`${theme === 'dark' ? 'bg-[#1E2733]/50' : 'bg-blue-100'} w-6 h-6 rounded-full flex items-center justify-center`}>
-              <span className={`text-xs font-medium ${theme === 'dark' ? 'text-blue-400' : 'text-blue-700'}`}>
-                {notifications.length}
-              </span>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            {(notifications.length ? notifications : [{ type: 'system', message: 'No active notifications right now.', time: 'Live' }]).map((notification, index) => (
-              <div 
-                key={index} 
-                className={`p-3 rounded-lg border-l-4 ${
-                  notification.type === 'attendance' 
-                    ? `${theme === 'dark' ? 'bg-[#251A1A]/30 border-[#F2683C]' : 'bg-red-50 border-red-500'}`
-                    : notification.type === 'system'
-                      ? `${theme === 'dark' ? 'bg-[#1A2520]/30 border-[#2F955A]' : 'bg-blue-50 border-blue-500'}`
-                      : `${theme === 'dark' ? 'bg-[#222C42]/30 border-[#506EE5]' : 'bg-purple-50 border-purple-500'}`
-                }`}
-              >
-                <div className="flex items-center">
-                  <Bell size={14} className={`${colors.icon} mr-2`} />
-                  <span className={`${colors.text} text-xs font-medium`}>{notification.message}</span>
-                </div>
-                <div className="flex justify-end mt-1">
-                  <span className={`${colors.secondaryText} text-xs`}>{notification.time}</span>
-                </div>
+        <div className="flex-1 space-y-4">
+          {(notifications.length ? notifications : [{ type: 'system', message: 'All operational nodes report nominal status.', time: 'System Time' }]).map((notification, index) => (
+            <div 
+              key={index} 
+              className={`p-5 rounded-2xl border-l-4 transition-all hover:translate-x-1 ${
+                notification.type === 'attendance' 
+                  ? (isDark ? 'bg-rose-500/5 border-rose-500/50 shadow-lg shadow-rose-900/5' : 'bg-rose-50 border-rose-500')
+                  : (isDark ? 'bg-brand-primary/5 border-brand-primary/50 shadow-lg shadow-brand-primary/5' : 'bg-indigo-50 border-indigo-500')
+              }`}
+            >
+              <p className={`text-xs font-bold leading-relaxed ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                {notification.message}
+              </p>
+              <div className="flex items-center justify-between mt-3">
+                 <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">{notification.time}</span>
+                 <div className={`w-1.5 h-1.5 rounded-full ${notification.type === 'attendance' ? 'bg-rose-500' : 'bg-brand-primary'}`}></div>
               </div>
-            ))}
-          </div>
-          
-          <button className={`w-full mt-4 py-2 text-center text-sm font-medium rounded-lg ${colors.button.primary}`}>
-            View All Notifications
-          </button>
+            </div>
+          ))}
         </div>
+        
+        <button className={`w-full mt-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all transform active:scale-95 ${
+          isDark ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+        }`}>
+          Console Explorer
+        </button>
       </div>
     </div>
   );

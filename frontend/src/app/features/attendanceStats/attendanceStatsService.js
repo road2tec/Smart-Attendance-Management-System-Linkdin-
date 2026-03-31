@@ -96,6 +96,26 @@ const attendanceStatsService = {
       return handleApiError(error);
     }
   },
+
+  // Teacher/Admin: Get defaulters list
+  getDefaultersList: async (courseId) => {
+    try {
+      const response = await axiosInstance.get(`${import.meta.env.VITE_API_URL}/attendance/defaulters/${courseId}`);
+      return response.data;
+    } catch (error) {
+      return handleApiError(error);
+    }
+  },
+
+  // Student: Get attendance trends
+  getStudentTrends: async (courseId) => {
+    try {
+      const response = await axiosInstance.get(`${import.meta.env.VITE_API_URL}/attendance/student/trends/${courseId}`);
+      return response.data;
+    } catch (error) {
+      return handleApiError(error);
+    }
+  },
 };
 
 export default attendanceStatsService;

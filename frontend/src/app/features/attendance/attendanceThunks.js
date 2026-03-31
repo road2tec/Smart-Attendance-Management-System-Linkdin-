@@ -116,9 +116,9 @@ export const verifyFaceEmbedding = createAsyncThunk(
 // Location Verification Thunk
 export const checkLocationValidityAndMarkPresent = createAsyncThunk(
   'attendance/checkLocation',
-  async ({ classId, location }, thunkAPI) => {
+  async ({ classId, location, skipWindowCheck }, thunkAPI) => {
     try {
-      return await attendanceService.checkLocationValidity(classId, location);
+      return await attendanceService.checkLocationValidity(classId, location, skipWindowCheck);
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Failed to verify location';
       return thunkAPI.rejectWithValue(message);

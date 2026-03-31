@@ -1,24 +1,17 @@
-
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/sidebar';
-import { Outlet, useLocation, useParams } from 'react-router-dom';
-import { useTheme } from '../../context/ThemeProvider';
+import { Outlet, useParams } from 'react-router-dom';
+import DashboardLayout from '../../components/DashboardLayout';
 
-import Navbar from './../../components/navbar'
 const StudentDashboard = () => {
-  const { themeConfig, theme } = useTheme();
-  const location = useLocation();
   const params = useParams();
-
-  // State for tracking selected items to pass to Sidebar
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
   
-  // Mock attendance data for dashboard charts
+  // State for dashboard data
   const [attendanceData, setAttendanceData] = useState([]);
   
   useEffect(() => {
-    // In a real app, fetch from API
+    // Mock data for initial view
     setAttendanceData([
       { name: 'Programming 101', present: 12, absent: 2, total: 14, percentage: 86 },
       { name: 'Data Structures', present: 8, absent: 1, total: 9, percentage: 89 },
@@ -27,45 +20,21 @@ const StudentDashboard = () => {
     ]);
   }, []);
 
-  
-
-  // Load selected entities based on URL parameters
   useEffect(() => {
-    const fetchEntities = async () => {
-      // In a real app, you'd fetch these from your API based on the IDs in the URL
-      if (params.courseId) {
-        setSelectedCourse({ _id: params.courseId, name: `Course ${params.courseId}` });
-      }
-      
-      if (params.classId) {
-        setSelectedClass({ _id: params.classId, name: `Class ${params.classId}` });
-      }
-    };
-    
-    fetchEntities();
+    if (params.courseId) {
+      setSelectedCourse({ _id: params.courseId, name: `Course ${params.courseId}` });
+    }
+    if (params.classId) {
+      setSelectedClass({ _id: params.classId, name: `Class ${params.classId}` });
+    }
   }, [params.courseId, params.classId]);
 
-  // Dashboard view with attendance charts
- 
-
   return (
-    <div className={`${themeConfig[theme].background} min-h-screen flex flex-col`}>
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-        />
-        <div className="w-full">
-          <Navbar title='Dashboard'/>
-        <main className={`flex-1 overflow-y-auto p-6 ${themeConfig[theme].gradientBackground}`}>
-          
-          <Outlet/>
-      
-          
-      
-      </main>
-        </div>
-        
-      </div>
-    </div>
+    <DashboardLayout role="student">
+       <div className="space-y-6">
+          <Outlet context={{ attendanceData, selectedCourse, selectedClass }} />
+       </div>
+    </DashboardLayout>
   );
 };
 

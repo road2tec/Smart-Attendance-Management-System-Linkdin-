@@ -16,7 +16,7 @@ import {
   LineChart,
   Line
 } from 'recharts';
-import { ChevronDown, ChevronUp, Download, Users, Clock, AlertTriangle, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, Users, Clock, AlertTriangle, X, Zap } from 'lucide-react';
 import { 
   getClassroomAttendance, 
   getTeacherAttendance,
@@ -317,10 +317,10 @@ class AttendanceProcessor {
 }
 
 // Loading component
-const LoadingSpinner = ({ message = "Loading..." }) => (
-  <div className="flex flex-col justify-center items-center h-64">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-    <p className="text-gray-600">{message}</p>
+const LoadingSpinner = ({ message = "Loading Attendance Data..." }) => (
+  <div className="flex flex-col justify-center items-center py-24 gap-6">
+    <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
+    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 animate-pulse">{message}</p>
   </div>
 );
 
@@ -341,239 +341,104 @@ const ErrorFallback = ({ error, resetError }) => (
 // Expandable section component
 const ExpandableSection = ({ title, children, defaultExpanded = false, icon }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const { themeConfig, theme } = useTheme();
-  const config = themeConfig[theme];
+  const { isDark } = useTheme();
 
   return (
-    <div className={`${config.card} mb-4`}>
+    <div className={`rounded-[2.5rem] border overflow-hidden transition-all duration-500 ${isDark ? 'bg-[#121A22]/30 border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full px-6 py-4 flex items-center justify-between text-left 
-          ${theme === 'dark' 
-            ? 'hover:bg-[#1A1D25]/50' 
-            : 'hover:bg-slate-50'
-          } 
-          transition-all duration-300 ease-in-out rounded-t-lg`}
+        className={`w-full px-8 py-6 flex items-center justify-between transition-all ${isDark ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50'}`}
       >
-        <div className="flex items-center space-x-3">
-          <div className={config.icon}>
+        <div className="flex items-center gap-4">
+          <div className={`p-2.5 rounded-xl ${isDark ? 'bg-gray-800 text-brand-primary' : 'bg-indigo-50 text-indigo-600'}`}>
             {icon}
           </div>
-          <h3 className={`text-lg font-semibold ${config.text}`}>
+          <h3 className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
             {title}
           </h3>
         </div>
-        <div className={`${config.secondaryText} transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
-          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        <div className={`transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`}>
+          <ChevronDown size={20} className="text-gray-500" strokeWidth={3} />
         </div>
       </button>
-      {isExpanded && (
-        <div className={`px-6 pb-6 border-t ${
-          theme === 'dark' 
-            ? 'border-[#2E3441]' 
-            : 'border-slate-200'
-        }`}>
-          <div className="pt-4">
-            {children}
-          </div>
+      <div className={`transition-all duration-500 ease-in-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+        <div className="p-8 border-t border-inherit">
+          {children}
         </div>
-      )}
+      </div>
     </div>
   );
 };
 
 // Student Details Modal Component
 const StudentModal = ({ student, onClose }) => {
-  const { themeConfig, theme } = useTheme();
-  const config = themeConfig[theme];
-  
+  const { isDark } = useTheme();
   if (!student) return null;
 
-  const getStatusBadgeStyle = (status) => {
-    if (theme === 'dark') {
-      return status === 'present' 
-        ? 'bg-[#2F955A]/20 text-[#2F955A] border border-[#2F955A]/30'
-        : 'bg-[#F2683C]/20 text-[#F2683C] border border-[#F2683C]/30';
-    } else {
-      return status === 'present'
-        ? 'bg-[#31B7AF]/10 text-[#31B7AF] border border-[#31B7AF]/20'
-        : 'bg-[#FF5A5A]/10 text-[#FF5A5A] border border-[#FF5A5A]/20';
-    }
-  };
-
-  const getLateBadgeStyle = (isLate) => {
-    if (theme === 'dark') {
-      return isLate
-        ? 'bg-[#F2683C]/20 text-[#F2683C] border border-[#F2683C]/30'
-        : 'bg-[#5E6E82]/20 text-[#5E6E82] border border-[#5E6E82]/30';
-    } else {
-      return isLate
-        ? 'bg-[#FF9F5A]/10 text-[#FF9F5A] border border-[#FF9F5A]/20'
-        : 'bg-slate-100 text-slate-500 border border-slate-200';
-    }
-  };
-
-  const getSummaryCardStyle = (type) => {
-    if (theme === 'dark') {
-      const styles = {
-        total: 'bg-[#506EE5]/20 border border-[#506EE5]/30',
-        present: 'bg-[#2F955A]/20 border border-[#2F955A]/30',
-        absent: 'bg-[#F2683C]/20 border border-[#F2683C]/30',
-        late: 'bg-[#F2683C]/20 border border-[#F2683C]/30'
-      };
-      return styles[type];
-    } else {
-      const styles = {
-        total: 'bg-[#4E8CEC]/10 border border-[#4E8CEC]/20',
-        present: 'bg-[#31B7AF]/10 border border-[#31B7AF]/20',
-        absent: 'bg-[#FF5A5A]/10 border border-[#FF5A5A]/20',
-        late: 'bg-[#FF9F5A]/10 border border-[#FF9F5A]/20'
-      };
-      return styles[type];
-    }
-  };
-
-  const getProgressBarColor = (percentage) => {
-    if (theme === 'dark') {
-      return percentage >= 90 ? 'bg-[#2F955A]' :
-             percentage >= 75 ? 'bg-[#F2683C]' : 'bg-[#F2683C]';
-    } else {
-      return percentage >= 90 ? 'bg-[#31B7AF]' :
-             percentage >= 75 ? 'bg-[#FF9F5A]' : 'bg-[#FF5A5A]';
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className={`${config.card} rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto`}>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className={`text-2xl font-bold ${config.text}`}>
-            Student Details: {student.studentName}
-          </h2>
-          <button
-            onClick={onClose}
-            className={`p-2 ${theme === 'dark' ? 'hover:bg-[#1A1D25]/50' : 'hover:bg-slate-100'} rounded-full transition-colors`}
-          >
-            <X size={20} className={config.secondaryText} />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 backdrop-blur-xl bg-black/40 animate-in fade-in duration-300">
+      <div className={`relative w-full max-w-4xl rounded-[3.5rem] border overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500 ${isDark ? 'bg-[#0A0E13] border-[#1E2733]' : 'bg-white border-gray-100'}`}>
+        <div className="relative p-8 sm:p-12 space-y-10">
+          <div className="flex justify-between items-start">
+            <div>
+               <div className="flex items-center gap-3 mb-2">
+                  <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isDark ? 'bg-brand-primary/20 text-brand-light' : 'bg-indigo-600 text-white'}`}>
+                    Individual Audit
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">ID: {student.rollNumber}</span>
+               </div>
+               <h2 className={`text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.studentName}</h2>
+            </div>
+            <button onClick={onClose} className={`p-4 rounded-2xl transition-all ${isDark ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-500 hover:text-black hover:bg-gray-200'}`}>
+              <X size={20} strokeWidth={3} />
+            </button>
+          </div>
 
-        {/* Student Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className={`${getSummaryCardStyle('total')} rounded-lg p-4`}>
-            <p className={`text-sm font-medium ${theme === 'dark' ? 'text-[#506EE5]' : 'text-[#4E8CEC]'}`}>
-              Total Classes
-            </p>
-            <p className={`text-2xl font-bold ${theme === 'dark' ? 'text-[#506EE5]' : 'text-[#4E8CEC]'}`}>
-              {student.totalClasses}
-            </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {[
+              { label: 'Modules Total', value: student.totalClasses, color: 'text-brand-primary', bg: isDark ? 'bg-brand-primary/10' : 'bg-indigo-50' },
+              { label: 'Presence Index', value: student.presentClasses, color: 'text-emerald-500', bg: isDark ? 'bg-emerald-500/10' : 'bg-emerald-50' },
+              { label: 'Absent Gap', value: student.absentClasses, color: 'text-rose-500', bg: isDark ? 'bg-rose-500/10' : 'bg-rose-50' },
+              { label: 'Latency Log', value: student.lateClasses, color: 'text-amber-500', bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50' }
+            ].map((stat, idx) => (
+              <div key={idx} className={`p-6 rounded-[2rem] border ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-gray-50 border-gray-100'}`}>
+                <p className="text-[9px] font-black text-gray-500 uppercase tracking-[0.15em] mb-2">{stat.label}</p>
+                <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
+              </div>
+            ))}
           </div>
-          <div className={`${getSummaryCardStyle('present')} rounded-lg p-4`}>
-            <p className={`text-sm font-medium ${theme === 'dark' ? 'text-[#2F955A]' : 'text-[#31B7AF]'}`}>
-              Present
-            </p>
-            <p className={`text-2xl font-bold ${theme === 'dark' ? 'text-[#2F955A]' : 'text-[#31B7AF]'}`}>
-              {student.presentClasses}
-            </p>
-          </div>
-          <div className={`${getSummaryCardStyle('absent')} rounded-lg p-4`}>
-            <p className={`text-sm font-medium ${theme === 'dark' ? 'text-[#F2683C]' : 'text-[#FF5A5A]'}`}>
-              Absent
-            </p>
-            <p className={`text-2xl font-bold ${theme === 'dark' ? 'text-[#F2683C]' : 'text-[#FF5A5A]'}`}>
-              {student.absentClasses}
-            </p>
-          </div>
-          <div className={`${getSummaryCardStyle('late')} rounded-lg p-4`}>
-            <p className={`text-sm font-medium ${theme === 'dark' ? 'text-[#F2683C]' : 'text-[#FF9F5A]'}`}>
-              Late
-            </p>
-            <p className={`text-2xl font-bold ${theme === 'dark' ? 'text-[#F2683C]' : 'text-[#FF9F5A]'}`}>
-              {student.lateClasses}
-            </p>
-          </div>
-        </div>
 
-        {/* Attendance Percentage */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className={`text-sm font-medium ${config.secondaryText}`}>
-              Attendance Percentage
-            </span>
-            <span className={`text-sm font-medium ${config.text}`}>
-              {student.attendancePercentage}%
-            </span>
+          <div className={`p-8 rounded-[2.5rem] border ${isDark ? 'bg-gray-900/50 border-[#1E2733]' : 'bg-gray-50 border-gray-100 shadow-inner'}`}>
+            <div className="flex items-center justify-between mb-4">
+               <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Aggregate Reliability</span>
+               <span className={`text-lg font-black ${student.attendancePercentage >= 75 ? 'text-brand-primary' : 'text-rose-500'}`}>{student.attendancePercentage}%</span>
+            </div>
+            <div className={`h-4 w-full rounded-full overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
+               <div className={`h-full transition-all duration-1000 ${student.attendancePercentage >= 75 ? 'bg-brand-primary' : 'bg-rose-500'}`} style={{ width: `${student.attendancePercentage}%` }}></div>
+            </div>
           </div>
-          <div className={`w-full ${theme === 'dark' ? 'bg-[#2E3441]' : 'bg-slate-200'} rounded-full h-3`}>
-            <div 
-              className={`h-3 rounded-full transition-all duration-500 ${getProgressBarColor(student.attendancePercentage)}`}
-              style={{ width: `${student.attendancePercentage}%` }}
-            ></div>
-          </div>
-        </div>
 
-        {/* Recent Attendance Records */}
-        <div>
-          <h3 className={`text-lg font-semibold ${config.text} mb-4`}>
-            Recent Attendance Records
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className={config.table.header}>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                    Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                    Class
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                    Late
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`${config.background} divide-y ${theme === 'dark' ? 'divide-[#2E3441]' : 'divide-slate-200'}`}>
-                {student.records?.slice(0, 10).map((record, index) => (
-                  <tr key={index} className={config.table.row}>
-                    <td className={`${config.table.cell} whitespace-nowrap text-sm ${config.text}`}>
-                      {record.classDate}
-                    </td>
-                    <td className={`${config.table.cell} whitespace-nowrap text-sm ${config.text}`}>
-                      {record.classTime}
-                    </td>
-                    <td className={`${config.table.cell} whitespace-nowrap text-sm ${config.text}`}>
-                      {record.class?.title || 'Untitled Class'}
-                    </td>
-                    <td className={`${config.table.cell} whitespace-nowrap`}>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeStyle(record.status)}`}>
-                        {record.status}
-                      </span>
-                    </td>
-                    <td className={`${config.table.cell} whitespace-nowrap`}>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLateBadgeStyle(record.isLate)}`}>
-                        {record.isLate ? 'Yes' : 'No'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="max-h-64 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+            {student.records?.slice(0, 10).map((record, index) => (
+              <div key={index} className={`p-4 rounded-2xl border flex items-center justify-between ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100'}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-2 h-2 rounded-full ${record.status === 'present' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                  <div>
+                    <p className={`text-xs font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{record.classDate}</p>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">{record.classTime} • {record.class?.title || 'Unknown'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                   {record.isLate && (
+                     <span className="px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase tracking-widest">Latency</span>
+                   )}
+                   <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${record.status === 'present' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                     {record.status}
+                   </span>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={onClose}
-            className={`${config.button.secondary} px-4 py-2`}
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>
@@ -582,8 +447,9 @@ const StudentModal = ({ student, onClose }) => {
 
 const TeacherAttendanceDashboard = () => {
   const dispatch = useDispatch();
-  const { themeConfig, theme } = useTheme();
-  const currentTheme = themeConfig[theme];
+  const { themeConfig, theme, isDark } = useTheme();
+  // Protected against undefined themeConfig to prevent white screen
+  const currentTheme = themeConfig ? themeConfig[theme] : null;
 
   const { teacherClassrooms } = useSelector((state) => state.classrooms);
   const { classroomAttendance, isLoading, error } = useSelector((state) => state.attendanceStats);
@@ -603,23 +469,22 @@ const TeacherAttendanceDashboard = () => {
 
   // Memoized attendance processor
   const attendanceProcessor = useMemo(() => {
-    if (!classroomAttendance?.recordsByClass) {
+    if (!classroomAttendance) {
       console.log('No classroom attendance data available');
       return null;
     }
 
     try {
-      console.log('Creating attendance processor with data:', classroomAttendance.recordsByClass);
+      console.log('Creating attendance processor with data:', classroomAttendance.recordsByClass || {});
       
       // Transform the data to match the expected format
-      const transformedData = Object.entries(classroomAttendance.recordsByClass).map(([className, classData]) => ({
+      const transformedData = Object.entries(classroomAttendance.recordsByClass || {}).map(([className, classData]) => ({
         className,
         records: Array.isArray(classData.records) ? classData.records : []
       }));
       
       if (transformedData.length === 0) {
-        console.log('No transformed data available');
-        return null;
+        console.log('No transformed data available. Rendering empty dashboard.');
       }
       
       return new AttendanceProcessor(transformedData);
@@ -667,6 +532,39 @@ const TeacherAttendanceDashboard = () => {
       return null;
     }
   }, [attendanceProcessor]);
+
+  const { stats, lowAttendanceStudents, lateStudents, studentSummaries, allRecords } = processedData || {
+    stats: { totalRecords: 0, attendanceRate: 0, lateRate: 0, presentCount: 0, absentCount: 0, lateCount: 0 },
+    lowAttendanceStudents: [],
+    lateStudents: [],
+    studentSummaries: [],
+    allRecords: []
+  };
+
+  const sessionLogs = useMemo(() => {
+    if (!allRecords) return [];
+    const sessionsMap = new Map();
+    allRecords.forEach(record => {
+      const key = `${record.className}_${record.classDate}`;
+      if (!sessionsMap.has(key)) {
+        sessionsMap.set(key, {
+          className: record.className,
+          classDate: record.classDate,
+          presentCount: 0,
+          absentCount: 0,
+          lateCount: 0,
+          totalCount: 0,
+          timestamp: record.markedAtTimestamp
+        });
+      }
+      const s = sessionsMap.get(key);
+      s.totalCount++;
+      if (record.status === 'present') s.presentCount++;
+      else if (record.status === 'absent') s.absentCount++;
+      if (record.isLate) s.lateCount++;
+    });
+    return Array.from(sessionsMap.values()).sort((a, b) => b.timestamp - a.timestamp);
+  }, [allRecords]);
 
   // Effect for fetching teacher classrooms
   useEffect(() => {
@@ -733,18 +631,35 @@ const TeacherAttendanceDashboard = () => {
     return <LoadingSpinner />;
   }
   
+  if (!teacherClassrooms || teacherClassrooms.length === 0) {
+    return (
+      <div className={`p-6 ${isDark ? 'bg-[#0A0E13]' : 'bg-gray-50'} min-h-screen`}>
+        <div className={`${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'} p-4 text-center rounded-2xl border`}>
+          <p className={`${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            You don't have any classrooms assigned yet.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!classroomAttendance && isLoading) {
+    return <LoadingSpinner />;
+  }
+
   if (!classroomAttendance) {
     return (
-      <div className={`p-6 ${currentTheme.background} min-h-screen`}>
-        <div className={`${currentTheme.card} p-4`}>
-          <p className={`${currentTheme.secondaryText}`}>
-            Waiting for attendance data to load...
+      <div className={`p-6 ${isDark ? 'bg-[#0A0E13]' : 'bg-gray-50'} min-h-screen`}>
+        <div className={`${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'} p-4 rounded-2xl border`}>
+          <p className={`${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            Please select a classroom to view attendance data.
           </p>
           <button 
             onClick={() => selectedClassroom && dispatch(getClassroomAttendance(selectedClassroom))}
-            className={`mt-2 ${currentTheme.button.primary}`}
+            className={`mt-4 px-4 py-2 rounded-lg font-bold text-sm ${isDark ? 'bg-brand-primary text-white' : 'bg-indigo-600 text-white'}`}
+            disabled={!selectedClassroom}
           >
-            Retry
+            Load Data
           </button>
         </div>
       </div>
@@ -753,9 +668,9 @@ const TeacherAttendanceDashboard = () => {
 
   if (!processedData) {
     return (
-      <div className={`p-6 ${currentTheme.background} min-h-screen`}>
-        <div className={`${currentTheme.card} p-4`}>
-          <p className={`${currentTheme.secondaryText}`}>
+      <div className={`p-6 ${isDark ? 'bg-[#0A0E13]' : 'bg-gray-50'} min-h-screen`}>
+        <div className={`${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'} p-4 rounded-2xl border`}>
+          <p className={`${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
             Processing attendance data...
           </p>
         </div>
@@ -764,37 +679,57 @@ const TeacherAttendanceDashboard = () => {
   }
 
   console.log('Rendering with processed data:', processedData);
-  
-
-  const { stats, lowAttendanceStudents, lateStudents, studentSummaries, allRecords } = processedData;
 
   return (
-    <div className={`p-6 ${currentTheme.background} min-h-screen`}>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className={`text-3xl font-bold ${currentTheme.text}`}>
-          Attendance Analytics Dashboard
-        </h1>
-        <div className="flex space-x-3">
-          <button
-            onClick={handleExportCSV}
-            className={`flex items-center space-x-2 px-4 py-2 ${currentTheme.button.primary}`}
-          >
-            <Download size={16} />
-            <span>Export CSV</span>
-          </button>
+    <div className={`min-h-screen p-4 sm:p-8 animate-in fade-in duration-700 ${isDark ? 'bg-[#0A0E13]' : 'bg-gray-50'}`}>
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Modern Header */}
+        <div className={`relative p-8 sm:p-12 rounded-[3.5rem] overflow-hidden border ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
+          <div className={`absolute top-0 right-0 w-96 h-96 blur-[100px] rounded-full opacity-10 -mr-32 -mt-32 ${isDark ? 'bg-brand-primary' : 'bg-indigo-400'}`}></div>
+          
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+             <div className="flex-1">
+                <div className="flex items-center gap-4 mb-4">
+                   <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] ${isDark ? 'bg-brand-primary/20 text-brand-light' : 'bg-indigo-600 text-white shadow-lg'}`}>
+                     Attendance Summary
+                   </div>
+                   <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                      <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></div>
+                      Live Status
+                   </div>
+                </div>
+                <h1 className={`text-4xl sm:text-5xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Attendance <span className="text-brand-primary">Analytics</span>
+                </h1>
+                <p className={`mt-4 text-lg font-medium max-w-xl leading-relaxed ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                  View and track student attendance history.
+                </p>
+             </div>
+             
+             <div className="flex flex-col sm:flex-row items-center gap-4">
+               <button
+                 onClick={handleExportCSV}
+                 className={`flex items-center gap-3 px-8 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition-all hover:scale-105 active:scale-95 ${
+                   isDark ? 'bg-brand-primary text-white shadow-xl shadow-brand-primary/20' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                 }`}
+               >
+                 <Download size={16} strokeWidth={3} />
+                 Download Report
+               </button>
+             </div>
+          </div>
         </div>
-      </div>
 
-      {/* Controls */}
-      <div className="mb-6 flex flex-wrap gap-4">
+      <div className="mb-8 flex flex-wrap gap-4">
         <div className="w-64">
-          <label className={`block text-sm font-medium ${currentTheme.secondaryText} mb-1`}>
+          <label className={`block text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-2 ml-1`}>
             Select Classroom
           </label>
           <select 
             value={selectedClassroom || ''} 
             onChange={handleClassroomChange}
-            className={`w-full px-3 py-2 ${currentTheme.select}`}
+            className={`w-full px-5 py-3 rounded-2xl border font-bold text-xs appearance-none transition-all ${isDark ? 'bg-[#1E2733]/50 border-[#1E2733] text-white focus:border-brand-primary' : 'bg-white border-gray-200 text-gray-900 focus:border-indigo-600 shadow-sm'}`}
           >
             {teacherClassrooms && teacherClassrooms.map((classroom) => (
               <option key={classroom._id} value={classroom._id}>
@@ -805,74 +740,53 @@ const TeacherAttendanceDashboard = () => {
         </div>
 
         <div className="w-48">
-          <label className={`block text-sm font-medium ${currentTheme.secondaryText} mb-1`}>
+          <label className={`block text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-2 ml-1`}>
             View Mode
           </label>
           <select 
             value={viewMode} 
             onChange={(e) => setViewMode(e.target.value)}
-            className={`w-full px-3 py-2 ${currentTheme.select}`}
+            className={`w-full px-5 py-3 rounded-2xl border font-bold text-xs appearance-none transition-all ${isDark ? 'bg-[#1E2733]/50 border-[#1E2733] text-white focus:border-brand-primary' : 'bg-white border-gray-200 text-gray-900 focus:border-indigo-600 shadow-sm'}`}
           >
             <option value="overview">Overview</option>
             <option value="detailed">Detailed Analysis</option>
             <option value="analytics">Advanced Analytics</option>
+            <option value="sessions">Session Log</option>
           </select>
         </div>
       </div>
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className={`${currentTheme.card} p-6`}>
-          <div className="flex items-center">
-            <Users className={`h-8 w-8 ${currentTheme.icon}`} />
-            <div className="ml-4">
-              <p className={`text-sm font-medium ${currentTheme.secondaryText}`}>Total Records</p>
-              <p className={`text-2xl font-bold ${currentTheme.text}`}>{stats.totalRecords}</p>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        {[
+          { label: 'Total Records', value: stats.totalRecords, icon: Users, color: 'text-brand-primary' },
+          { label: 'Attendance Rate', value: `${stats.attendanceRate}%`, icon: Zap, color: 'text-emerald-500' },
+          { label: 'Latency Rate', value: `${stats.lateRate}%`, icon: Clock, color: 'text-amber-500' },
+          { label: 'Critical Risk', value: lowAttendanceStudents.length, icon: AlertTriangle, color: 'text-rose-500' }
+        ].map((stat, idx) => (
+          <div key={idx} className={`p-6 rounded-[2rem] border flex items-center gap-6 ${isDark ? 'bg-[#1E2733]/30 border-[#1E2733]' : 'bg-gray-50/50 border-gray-100'}`}>
+            <div className={`p-4 rounded-2xl ${isDark ? 'bg-gray-800/50' : 'bg-white shadow-sm'} ${stat.color}`}>
+              <stat.icon size={24} strokeWidth={3} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{stat.label}</p>
+              <h2 className={`text-3xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{stat.value}</h2>
             </div>
           </div>
-        </div>
-
-        <div className={`${currentTheme.card} p-6`}>
-          <div className="flex items-center">
-            <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-              <div className="h-4 w-4 bg-green-600 rounded-full"></div>
-            </div>
-            <div className="ml-4">
-              <p className={`text-sm font-medium ${currentTheme.secondaryText}`}>Attendance Rate</p>
-              <p className={`text-2xl font-bold ${currentTheme.table.accent1}`}>{stats.attendanceRate}%</p>
-            </div>
-          </div>
-        </div>
-
-        <div className={`${currentTheme.card} p-6`}>
-          <div className="flex items-center">
-            <Clock className={`h-8 w-8 text-yellow-600`} />
-            <div className="ml-4">
-              <p className={`text-sm font-medium ${currentTheme.secondaryText}`}>Late Rate</p>
-              <p className={`text-2xl font-bold text-yellow-600`}>{stats.lateRate}%</p>
-            </div>
-          </div>
-        </div>
-
-        <div className={`${currentTheme.card} p-6`}>
-          <div className="flex items-center">
-            <AlertTriangle className={`h-8 w-8 ${currentTheme.table.accent2}`} />
-            <div className="ml-4">
-              <p className={`text-sm font-medium ${currentTheme.secondaryText}`}>Low Attendance</p>
-              <p className={`text-2xl font-bold ${currentTheme.table.accent2}`}>{lowAttendanceStudents.length}</p>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Main Chart */}
-      <div className={`${currentTheme.card} p-6 mb-8`}>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className={`text-xl font-semibold ${currentTheme.text}`}>Attendance Overview</h2>
+      <div className={`p-8 rounded-[3rem] border backdrop-blur-md ${isDark ? 'bg-[#121A22]/50 border-[#1E2733]' : 'bg-white/80 border-gray-100 shadow-sm'}`}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
+          <div>
+            <h2 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Attendance Chart</h2>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Overall class presence visualization</p>
+          </div>
           <select 
             value={chartType} 
             onChange={(e) => setChartType(e.target.value)}
-            className={`px-3 py-2 ${currentTheme.select} text-sm`}
+            className={`px-4 py-2 rounded-xl border font-black text-[10px] uppercase tracking-widest appearance-none transition-all ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-100 border-gray-200 text-gray-900'}`}
           >
             <option value="bar">Bar Chart</option>
             <option value="pie">Pie Chart</option>
@@ -880,7 +794,7 @@ const TeacherAttendanceDashboard = () => {
           </select>
         </div>
 
-        <div className="h-96">
+        <div className="h-96 w-full">
           <ResponsiveContainer width="100%" height="100%">
             {chartType === 'pie' ? (
               <PieChart>
@@ -892,27 +806,66 @@ const TeacherAttendanceDashboard = () => {
                   ]}
                   cx="50%"
                   cy="50%"
+                  innerRadius={80}
                   outerRadius={120}
-                  fill="#8884d8"
+                  paddingAngle={8}
                   dataKey="value"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                  stroke="none"
                 >
-                  {COLORS.map((color, index) => (
-                    <Cell key={`cell-${index}`} fill={color} />
+                  {[ '#2E67FF', '#F2683C', '#FBBF24'].map((color, index) => (
+                    <Cell key={`cell-${index}`} fill={color} className="hover:opacity-80 transition-opacity cursor-pointer" />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className={`p-4 rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'bg-[#0A0E13]/90 border-[#1E2733]' : 'bg-white/90 border-gray-100'}`}>
+                          <p className={`text-xs font-black uppercase tracking-widest mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{payload[0].name}</p>
+                          <p className="text-[10px] font-bold text-brand-primary uppercase">{payload[0].value} Records Logs</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
               </PieChart>
             ) : (
-              <BarChart data={studentSummaries.slice(0, 15)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="studentName" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="attendancePercentage" name="Attendance %" fill="#0088FE" />
-                <Bar dataKey="lateClasses" name="Late Classes" fill="#FF8042" />
+              <BarChart data={studentSummaries.slice(0, 15)} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#1E2733' : '#eee'} />
+                <XAxis 
+                  dataKey="studentName" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
+                />
+                <Tooltip 
+                  cursor={{ fill: isDark ? '#1E2733' : '#f8fafc', radius: 12 }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className={`p-4 rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'bg-[#0A0E13]/90 border-[#1E2733]' : 'bg-white/90 border-gray-100'}`}>
+                          <p className={`text-xs font-black uppercase tracking-widest mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{payload[0].payload.studentName}</p>
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-bold text-brand-primary uppercase">{payload[0].value}% Attendance</p>
+                            <p className="text-[8px] font-bold text-amber-500 uppercase">{payload[1].value} Late Logs</p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="attendancePercentage" fill="#2E67FF" radius={[6, 6, 6, 6]} barSize={24} />
+                <Bar dataKey="lateClasses" fill="#FBBF24" radius={[6, 6, 6, 6]} barSize={24} />
               </BarChart>
             )}
           </ResponsiveContainer>
@@ -921,153 +874,202 @@ const TeacherAttendanceDashboard = () => {
 
       {/* Expandable Sections */}
       {viewMode !== 'overview' && (
-        <>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Suspense fallback={<LoadingSpinner />}>
             <ExpandableSection 
-              title="Low Attendance Alert" 
-              icon={<AlertTriangle className={`${currentTheme.table.accent2}`} size={20} />}
+              title="Low Attendance Students" 
+              icon={<AlertTriangle size={20} />}
               defaultExpanded={lowAttendanceStudents.length > 0}
             >
-              <div className="space-y-3">
-                {lowAttendanceStudents.slice(0, itemsToShow).map((student, index) => (
-                  <div key={index} className={`flex justify-between items-center p-3 ${currentTheme.button.danger} rounded-lg`}>
+              <div className="space-y-4">
+                {lowAttendanceStudents.slice(0, 5).map((student, index) => (
+                  <div key={index} className={`p-4 rounded-2xl border flex justify-between items-center ${isDark ? 'bg-[#121A22] border-rose-500/20' : 'bg-rose-50 border-rose-100'}`}>
                     <div>
-                      <p className={`font-medium ${currentTheme.text}`}>{student.studentName}</p>
-                      <p className={`text-sm ${currentTheme.secondaryText}`}>Roll: {student.rollNumber}</p>
+                      <p className={`text-sm font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.studentName}</p>
+                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">ID: {student.rollNumber}</p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-lg font-bold ${currentTheme.table.accent2}`}>{student.attendancePercentage}%</p>
-                      <p className={`text-sm ${currentTheme.secondaryText}`}>
-                        {student.presentClasses}/{student.totalClasses} classes
-                      </p>
+                      <p className="text-lg font-black text-rose-500">{student.attendancePercentage}%</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">{student.presentClasses}/{student.totalClasses} Marks</p>
                     </div>
                   </div>
                 ))}
-                {lowAttendanceStudents.length > itemsToShow && (
-                  <button
-                    onClick={() => setItemsToShow(itemsToShow + 10)}
-                    className={`w-full py-2 ${currentTheme.button.secondary} text-sm font-medium`}
-                  >
-                    View More ({lowAttendanceStudents.length - itemsToShow} remaining)
-                  </button>
-                )}
               </div>
             </ExpandableSection>
 
             <ExpandableSection 
-              title="Consistently Late Students" 
-              icon={<Clock className="text-yellow-600" size={20} />}
+              title="Latency Anomalies" 
+              icon={<Clock size={20} />}
             >
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {lateStudents.slice(0, 5).map((student, index) => (
-                  <div key={index} className={`flex justify-between items-center p-3 ${currentTheme.button.orange} rounded-lg`}>
+                  <div key={index} className={`p-4 rounded-2xl border flex justify-between items-center ${isDark ? 'bg-[#121A22] border-amber-500/20' : 'bg-amber-50 border-amber-100'}`}>
                     <div>
-                      <p className={`font-medium ${currentTheme.text}`}>{student.studentName}</p>
-                      <p className={`text-sm ${currentTheme.secondaryText}`}>Roll: {student.rollNumber}</p>
+                      <p className={`text-sm font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.studentName}</p>
+                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">STREAK: {student.maxConsecutiveLate} DAYS</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-yellow-600">{student.maxConsecutiveLate} consecutive</p>
-                      <p className={`text-sm ${currentTheme.secondaryText}`}>
-                        {student.totalLateClasses} late classes total
-                      </p>
+                      <p className="text-lg font-black text-amber-500">{student.maxConsecutiveLate}</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-gray-400">Sequential Latency</p>
                     </div>
                   </div>
                 ))}
               </div>
             </ExpandableSection>
           </Suspense>
-        </>
+        </div>
       )}
 
       {/* Student Details Table */}
-      <div className={`${currentTheme.card}`}>
-        <div className={`px-6 py-4 ${currentTheme.table.header}`}>
-          <h3 className={`text-lg font-semibold ${currentTheme.text}`}>Student Details</h3>
+      <div className={`rounded-[3rem] border overflow-hidden backdrop-blur-md ${isDark ? 'bg-[#121A22]/50 border-[#1E2733]' : 'bg-white/80 border-gray-100 shadow-sm'}`}>
+        <div className={`px-8 py-6 border-b ${isDark ? 'border-[#1E2733] bg-gray-900/30' : 'bg-gray-50/50 border-gray-100'}`}>
+          <h3 className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Attendance Logs</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className={`${currentTheme.table.header}`}>
-              <tr>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${currentTheme.secondaryText} uppercase tracking-wider`}>
-                  Student
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${currentTheme.secondaryText} uppercase tracking-wider`}>
-                  Roll Number
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${currentTheme.secondaryText} uppercase tracking-wider`}>
-                  Attendance Rate
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${currentTheme.secondaryText} uppercase tracking-wider`}>
-                  Present/Total
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${currentTheme.secondaryText} uppercase tracking-wider`}>
-                  Late Classes
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${currentTheme.secondaryText} uppercase tracking-wider`}>
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className={`${currentTheme.card} divide-y divide-gray-200`}>
-              {studentSummaries.slice(0, itemsToShow).map((student, index) => (
-                <tr key={index} className={`${currentTheme.table.row}`}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-medium ${currentTheme.text}`}>{student.studentName}</div>
-                  </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${currentTheme.secondaryText}`}>
-                    {student.rollNumber}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                        <div 
-                          className={`h-2 rounded-full ${
-                            student.attendancePercentage >= 90 ? 'bg-green-600' :
-                            student.attendancePercentage >= 75 ? 'bg-yellow-400' : 'bg-red-600'
-                          }`}
-                          style={{ width: `${student.attendancePercentage}%` }}
-                        ></div>
-                      </div>
-                      <span className={`text-sm font-medium ${currentTheme.text}`}>
-                        {student.attendancePercentage}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${currentTheme.secondaryText}`}>
-                    {student.presentClasses}/{student.totalClasses}
-                  </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${currentTheme.secondaryText}`}>
-                    {student.lateClasses}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => handleStudentClick(student)}
-                      className={`${currentTheme.table.accent1} hover:opacity-80`}
-                    >
-                      View Details
-                    </button>
-                  </td>
+        {viewMode === 'sessions' ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className={isDark ? 'bg-gray-900/50' : 'bg-gray-50/50'}>
+                <tr>
+                  {['Session Date', 'Class Name', 'Attendance %', 'Summary', 'Status'].map((header) => (
+                    <th key={header} className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                      {header}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {studentSummaries.length > itemsToShow && (
-          <div className={`px-6 py-4 ${currentTheme.table.header}`}>
-            <button
-              onClick={() => setItemsToShow(itemsToShow + 10)}
-              className={`w-full py-2 ${currentTheme.button.secondary} text-sm font-medium`}
-            >
-              Load More ({studentSummaries.length - itemsToShow} remaining)
-            </button>
+              </thead>
+              <tbody className="divide-y divide-inherit">
+                {sessionLogs.slice(0, itemsToShow).map((session, index) => {
+                  const rate = session.totalCount > 0 ? Math.round(((session.presentCount + session.lateCount * 0.5) / session.totalCount) * 100) : 0;
+                  return (
+                    <tr key={index} className={`transition-colors ${isDark ? 'hover:bg-gray-800/30 divide-[#1E2733]' : 'hover:bg-gray-50 divide-gray-100'}`}>
+                      <td className="px-8 py-5">
+                        <div className={`text-xs font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{session.classDate}</div>
+                      </td>
+                      <td className="px-8 py-5 text-[10px] font-bold text-brand-primary uppercase tracking-widest">
+                        {session.className || 'General Session'}
+                      </td>
+                      <td className="px-8 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-16 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                            <div 
+                              className={`h-full rounded-full ${
+                                rate >= 90 ? 'bg-emerald-500' :
+                                rate >= 75 ? 'bg-amber-500' : 'bg-rose-500'
+                              }`}
+                              style={{ width: `${rate}%` }}
+                            ></div>
+                          </div>
+                          <span className={`text-[10px] font-black tracking-widest ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            {rate}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5">
+                        <div className="flex gap-2">
+                          <span className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500">
+                            {session.presentCount} P
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500">
+                            {session.absentCount} A
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5">
+                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${session.lateCount > 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-gray-500/10 text-gray-500'}`}>
+                          {session.lateCount} Late
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {sessionLogs.length > itemsToShow && (
+              <div className={`p-6 border-t ${isDark ? 'border-[#1E2733]' : 'border-gray-100'}`}>
+                <button
+                  onClick={() => setItemsToShow(itemsToShow + 10)}
+                  className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${isDark ? 'bg-gray-800/50 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:text-black'}`}
+                >
+                  Show More Records ({sessionLogs.length - itemsToShow} left)
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className={isDark ? 'bg-gray-900/50' : 'bg-gray-50/50'}>
+                <tr>
+                  {['Student Name', 'ID/Roll No', 'Attendance %', 'Total Logs', 'Late Logs', 'Action'].map((header) => (
+                    <th key={header} className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-inherit">
+                {studentSummaries.slice(0, itemsToShow).map((student, index) => (
+                  <tr key={index} className={`transition-colors ${isDark ? 'hover:bg-gray-800/30 divide-[#1E2733]' : 'hover:bg-gray-50 divide-gray-100'}`}>
+                    <td className="px-8 py-5">
+                      <div className={`text-xs font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{student.studentName}</div>
+                    </td>
+                    <td className="px-8 py-5 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                      {student.rollNumber}
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-16 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                          <div 
+                            className={`h-full rounded-full ${
+                              student.attendancePercentage >= 90 ? 'bg-emerald-500' :
+                              student.attendancePercentage >= 75 ? 'bg-amber-500' : 'bg-rose-500'
+                            }`}
+                            style={{ width: `${student.attendancePercentage}%` }}
+                          ></div>
+                        </div>
+                        <span className={`text-[10px] font-black tracking-widest ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                          {student.attendancePercentage}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 text-[10px] font-bold text-gray-400 tracking-widest">
+                      {student.presentClasses} / {student.totalClasses}
+                    </td>
+                    <td className="px-8 py-5">
+                      <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${student.lateClasses > 2 ? 'bg-rose-500/10 text-rose-500' : 'bg-gray-500/10 text-gray-500'}`}>
+                        {student.lateClasses} Logs
+                      </span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <button
+                        onClick={() => handleStudentClick(student)}
+                        className={`text-[9px] font-black uppercase tracking-widest transition-all hover:text-brand-primary ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {studentSummaries.length > itemsToShow && (
+              <div className={`p-6 border-t ${isDark ? 'border-[#1E2733]' : 'border-gray-100'}`}>
+                <button
+                  onClick={() => setItemsToShow(itemsToShow + 10)}
+                  className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${isDark ? 'bg-gray-800/50 text-gray-400 hover:text-white' : 'bg-gray-100 text-gray-500 hover:text-black'}`}
+                >
+                  Show More Records ({studentSummaries.length - itemsToShow} remaining)
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Student Details Modal */}
        {showStudentModal && selectedStudent && (
         <StudentModal student={selectedStudent} onClose={handleCloseModal} />
        )}
+      </div>
     </div>
   );
 };

@@ -72,10 +72,11 @@ const verifyFaceEmbedding = async (faceEmbeddingData) => {
 };
 
 // New Location Verification Service
-const checkLocationValidity = async (classId, location) => {
+const checkLocationValidity = async (classId, location, skipWindowCheck = false) => {
   const response = await axiosInstance.post(`${API_URL}/verify-location`, { 
     classId, 
-    location 
+    location,
+    skipWindowCheck
   });
   return response.data;
 };

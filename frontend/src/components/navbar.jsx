@@ -1,27 +1,21 @@
 import React, { useState } from "react";
-import { FaUser, FaBell, FaSignOutAlt, FaCog } from "react-icons/fa";
-import { BsMoon, BsSun } from "react-icons/bs";
+import { User, Bell, LogOut, Settings, Moon, Sun, Search, Activity } from "lucide-react";
 import { useTheme } from "../context/ThemeProvider";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../app/features/auth/authThunks";
+import { Link } from "react-router-dom";
 
 const Navbar = ({
-  title = "App Title",
+  title = "SmartAttend Secure",
   userName = "User",
   showThemeToggle = true,
   showNotifications = true,
-  showProfile = true,
-  onProfileClick,
-  onSettingsClick,
-  customLogo,
-  className = "",
-  notificationsData = [],
+  showProfile = true
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
-  const { theme, themeConfig, toggleTheme, isDark } = useTheme();
+  const { theme, toggleTheme, isDark } = useTheme();
   
-  // Redux state and dispatch
   const dispatch = useDispatch();
   const { user, isAuthenticated } = useSelector(state => state.auth);
 
@@ -30,152 +24,122 @@ const Navbar = ({
     if (showNotificationsPanel) setShowNotificationsPanel(false);
   };
 
-  const toggleNotifications = () => {
-    setShowNotificationsPanel(!showNotificationsPanel);
-    if (showDropdown) setShowDropdown(false);
-  };
-
-  // Default notifications if none provided
-  const notifications = notificationsData.length > 0 
-    ? notificationsData 
-    : [
-        { id: 1, text: "New notification", time: "2 hours ago", read: false },
-        { id: 2, text: "System update", time: "1 day ago", read: true },
-      ];
-
-  const handleMenuItemClick = (handler) => {
-    if (handler) handler();
-    setShowDropdown(false);
-  };
-
   const handleLogout = () => {
-    if (onSettingsClick) {
-      onSettingsClick();
-    }
     dispatch(logout());
     setShowDropdown(false);
   };
 
-  // Determine display name
   const displayName = user?.firstName || userName;
-
-  // Using theme configuration instead of hardcoded values
-  const currentTheme = themeConfig[theme];
-  const hoverBg = isDark ? "hover:bg-gray-700" : "hover:bg-slate-100";
-  const dropdownBg = isDark ? currentTheme.card : "bg-white shadow-lg";
-  const dropdownBorder = isDark ? "border-[#1E2733]" : "border-slate-200";
-  const avatarBg = isDark ? "bg-gray-700" : "bg-[#4E8CEC]/20";
-  const iconColor = isDark ? "text-white" : "text-[#31B7AF]";
-  const navBg = isDark ? currentTheme.gradientBackground : "bg-white";
 
   return (
     <nav
-      className={`flex justify-between items-center p-4 z-10 shadow-md ${navBg} ${className}`}
+      className={`
+        sticky top-0 w-full z-40 px-8 py-4 flex justify-between items-center 
+        transition-all duration-300 border-b
+        ${isDark ? 'bg-[#020617]/80 backdrop-blur-xl border-white/5' : 'bg-white/80 backdrop-blur-xl border-slate-200/60'}
+      `}
     >
-      <div className="flex items-center space-x-2">
-        {customLogo ? (
-          customLogo
-        ) : (
-          <div className={`text-xl font-bold ${isDark ? currentTheme.text : "text-[#31B7AF]"}`}>{title}</div>
-        )}
+      {/* Title / Search */}
+      <div className="flex items-center gap-10">
+        <div className="flex items-center gap-2 md:hidden">
+           <Activity className="text-brand-primary" size={20} />
+           <span className={`font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>SmartAttend</span>
+        </div>
+        
+        <div className="hidden md:flex items-center relative group">
+          <Search className={`absolute left-4 w-4 h-4 transition-colors ${isDark ? 'text-slate-500 group-focus-within:text-brand-primary' : 'text-slate-400 group-focus-within:text-brand-primary'}`} />
+          <input 
+            type="text" 
+            placeholder="Search dashboard..." 
+            className={`
+              pl-11 pr-4 py-2.5 text-sm rounded-2xl w-72 transition-all duration-300 font-bold border-none
+              ${isDark ? 'bg-white/5 text-white focus:bg-white/10' : 'bg-slate-50 text-slate-800 focus:bg-white focus:shadow-sm'}
+              focus:outline-none focus:ring-4 focus:ring-brand-primary/10
+            `}
+          />
+        </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-5">
+        {/* Notifications */}
+        {showNotifications && (
+          <button 
+            onClick={() => setShowNotificationsPanel(!showNotificationsPanel)} 
+            className={`
+              p-2.5 rounded-xl transition-all duration-300 relative
+              ${isDark ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-50 hover:bg-slate-100 text-slate-500'}
+            `}
+          >
+            <Bell size={20} />
+            <span className="absolute top-2 right-2.5 h-2 w-2 bg-brand-primary rounded-full border-2 border-white dark:border-[#020617]"></span>
+          </button>
+        )}
+
         {/* Theme Toggle */}
         {showThemeToggle && (
           <button 
             onClick={toggleTheme} 
-            className={`p-2 text-xl rounded-full ${hoverBg} transition-colors`}
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            className={`
+              p-2.5 rounded-xl transition-all duration-300
+              ${isDark ? 'bg-white/5 hover:bg-white/10 text-amber-300' : 'bg-slate-50 hover:bg-slate-100 text-brand-primary'}
+            `}
           >
-            {isDark ? (
-              <BsSun className="text-yellow-400" />
-            ) : (
-              <BsMoon className="text-[#6D77D8]" />
-            )}
+            {isDark ? <Sun size={20} /> : <Moon size={20} />}
           </button>
         )}
 
-        {/* Notifications */}
-        {showNotifications && (
-          <div className="relative">
-            <button 
-              onClick={toggleNotifications} 
-              className={`p-2 text-xl relative ${hoverBg} rounded-full transition-colors ${iconColor}`}
-              aria-label="Notifications"
-            >
-              <FaBell />
-              {notifications.some((n) => !n.read) && (
-                <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
-              )}
-            </button>
+        <div className={`h-8 w-px mx-1 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}></div>
 
-            {showNotificationsPanel && (
-              <div className={`absolute right-0 mt-2 w-64 ${dropdownBg} border ${dropdownBorder} rounded-lg p-3 z-50`}>
-                <h3 className={`text-sm font-semibold border-b pb-2 mb-2 ${currentTheme.text}`}>Notifications</h3>
-                {notifications.length > 0 ? (
-                  <ul>
-                    {notifications.map((notification) => (
-                      <li
-                        key={notification.id}
-                        className={`p-2 text-sm rounded ${!notification.read ? (isDark ? "bg-gray-700" : "bg-[#F3F6FA]") : ""} ${currentTheme.text}`}
-                      >
-                        {notification.text}{" "}
-                        <span className={`text-xs ${currentTheme.secondaryText} block`}>
-                          {notification.time}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={`text-sm ${currentTheme.secondaryText}`}>No notifications</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Profile Dropdown */}
+        {/* Profile */}
         {showProfile && isAuthenticated && (
           <div className="relative">
             <button 
               onClick={toggleDropdown} 
-              className={`flex items-center gap-2 p-2 ${hoverBg} rounded-lg transition-colors ${currentTheme.text}`}
-              aria-label="User menu"
+              className={`
+                flex items-center gap-3 p-1.5 rounded-2xl transition-all duration-300 group
+                ${isDark ? 'bg-white/5 hover:bg-white/10 border border-white/5' : 'bg-slate-50 hover:bg-slate-100 border border-slate-100'}
+              `}
             >
-              {user?.profileImage ? (
-                <img 
-                  src={user.profileImage} 
-                  alt={displayName} 
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              ) : (
-                <div className={`w-8 h-8 ${avatarBg} rounded-full flex items-center justify-center ${isDark ? 'text-white' : 'text-[#4E8CEC]'}`}>
-                  <FaUser />
-                </div>
-              )}
-              <span>{displayName}</span>
+              <div className="h-9 w-9 rounded-xl bg-brand-primary/10 flex items-center justify-center overflow-hidden border border-brand-primary/20">
+                {user?.profileImage ? (
+                  <img src={user.profileImage} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="text-brand-primary" size={20} />
+                )}
+              </div>
+              <span className={`text-sm font-black uppercase tracking-widest hidden md:block ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                {displayName}
+              </span>
             </button>
 
             {showDropdown && (
-              <div className={`absolute right-0 mt-2 w-40 ${dropdownBg} border ${dropdownBorder} rounded-lg p-3 z-50`}>
-                <button
-                  onClick={() => handleMenuItemClick(onProfileClick)}
-                  className={`flex items-center gap-2 p-2 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-[#F3F6FA]'} w-full rounded transition-colors ${currentTheme.text}`}
+              <div className={`
+                absolute right-0 mt-3 w-64 p-3 z-50 rounded-[32px]
+                ${isDark ? 'bg-[#020617] border border-white/10 shadow-2xl text-white' : 'bg-white border border-slate-200 shadow-xl text-slate-800'}
+                animate-in fade-in slide-in-from-top-2 duration-300
+              `}>
+                <div className="p-4 mb-2 border-b border-slate-100 dark:border-white/5">
+                   <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Signed in as</p>
+                   <p className="font-black text-sm">{user?.email}</p>
+                </div>
+                <Link
+                  to="/profile"
+                  className={`flex items-center gap-3 p-3.5 text-sm rounded-2xl transition-all duration-300 font-black uppercase tracking-widest ${isDark ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-50 text-slate-600'}`}
                 >
-                  <FaUser className={isDark ? "" : "text-[#6D77D8]"} /> Profile
-                </button>
-                <button
-                  onClick={() => handleMenuItemClick(onSettingsClick)}
-                  className={`flex items-center gap-2 p-2 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-[#F3F6FA]'} w-full rounded transition-colors ${currentTheme.text}`}
+                  <User size={18} className="text-brand-primary" /> Profile
+                </Link>
+                <Link
+                  to="/settings"
+                  className={`flex items-center gap-3 p-3.5 text-sm rounded-2xl transition-all duration-300 font-black uppercase tracking-widest ${isDark ? 'hover:bg-white/5 text-slate-400' : 'hover:bg-slate-50 text-slate-600'}`}
                 >
-                  <FaCog className={isDark ? "" : "text-[#6D77D8]"} /> Settings
-                </button>
+                  <Settings size={18} className="text-slate-400" /> Settings
+                </Link>
+                <div className={`h-px my-2 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                 <button
                   onClick={handleLogout}
-                  className={`flex items-center gap-2 p-2 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-[#F3F6FA]'} w-full rounded transition-colors ${isDark ? "text-red-500" : "text-[#FF5A5A]"}`}
+                  className={`w-full flex items-center gap-3 p-3.5 text-sm rounded-2xl transition-all duration-300 text-brand-primary font-black uppercase tracking-widest ${isDark ? 'hover:bg-brand-primary/5' : 'hover:bg-indigo-50'}`}
                 >
-                  <FaSignOutAlt /> Logout
+                  <LogOut size={18} /> Logout
                 </button>
               </div>
             )}

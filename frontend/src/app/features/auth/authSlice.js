@@ -37,9 +37,19 @@
         .addCase(register.fulfilled, (state, action) => {
           state.isLoading = false;
           state.isSuccess = true;
-          state.isAuthenticated = true;
-          state.user = action.payload?.user || null;      
-          state.token = action.payload?.token || null;
+          // Only authenticate if a token was returned (Active users, not Pending ones)
+          if (action.payload?.token) {
+            state.isAuthenticated = true;
+            state.user = action.payload.user;      
+            state.token = action.payload.token;
+            localStorage.setItem('user', JSON.stringify(action.payload.user));
+            localStorage.setItem('authToken', action.payload.token);
+          } else {
+            // Clear any local state if no token was provided (Pending Teacher)
+            state.isAuthenticated = false;
+            state.user = null;
+            state.token = null;
+          }
         })
         .addCase(register.rejected, (state, action) => {
           state.isLoading = false;

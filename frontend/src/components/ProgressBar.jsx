@@ -1,28 +1,35 @@
 import React from 'react';
+import { useTheme } from '../context/ThemeProvider';
 
-const ProgressBar = ({ step, totalSteps, getThemedClass, theme }) => {
-  const progress = (step / (totalSteps - 1)) * 100;
-  
+const ProgressBar = ({ step, totalSteps }) => {
+  const { isDark } = useTheme();
+
   return (
-    <div className="w-full mb-4">
-      <div className={`relative h-1 ${getThemedClass('bg-slate-800/50', 'bg-blue-100')} rounded-full overflow-hidden`}>
-        <div 
-          className="absolute h-full bg-green-500 transition-all duration-300 ease-out"
-          style={{ width: `${progress}%` }}
-        />
+    <div className="w-full space-y-4">
+      <div className="flex justify-between items-end mb-2">
+        <div>
+           <span className={`text-xs font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              Step {step + 1} of {totalSteps}
+           </span>
+           <h4 className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
+              {step === 0 ? 'Account Type' : step === 1 ? 'Personal Details' : step === 2 ? 'Location' : 'Credentials'}
+           </h4>
+        </div>
+        <span className="text-2xl font-black text-brand-primary">
+           {Math.round(((step + 1) / totalSteps) * 100)}%
+        </span>
       </div>
-      <div className="flex justify-between mt-1">
-        {Array.from({ length: totalSteps }).map((_, index) => (
+      
+      <div className={`h-3 w-full rounded-full overflow-hidden flex gap-1 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+        {Array.from({ length: totalSteps }).map((_, i) => (
           <div 
-            key={index}
-            className={`flex items-center justify-center h-5 w-5 text-xs rounded-full transition-colors ${
-              step > index ? 'bg-green-600 border border-green-400 text-white' : 
-              step === index ? (theme === 'dark' ? 'bg-slate-600 border border-green-500 text-white' : 'bg-blue-200 border border-green-500 text-blue-800') : 
-              getThemedClass('bg-slate-800/50 border border-slate-700 text-gray-400', 'bg-white border border-blue-200 text-blue-400')
+            key={i}
+            className={`h-full flex-1 transition-all duration-700 rounded-full ${
+              i <= step 
+                ? 'bg-gradient-to-r from-brand-primary to-brand-secondary shadow-lg shadow-brand-primary/20' 
+                : isDark ? 'bg-white/5' : 'bg-slate-200'
             }`}
-          >
-            {index + 1}
-          </div>
+          />
         ))}
       </div>
     </div>

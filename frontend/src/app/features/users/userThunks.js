@@ -65,3 +65,42 @@ export const updateUser = createAsyncThunk(
     }
   }
 );
+
+// Fetch pending users
+export const fetchPendingUsers = createAsyncThunk(
+  'users/fetchPendingUsers',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await userService.getPendingUsers();
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
+);
+
+// Update user status
+export const updateUserStatus = createAsyncThunk(
+  'users/updateUserStatus',
+  async ({ userId, status }, { rejectWithValue }) => {
+    try {
+      return await userService.updateUserStatus(userId, status);
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
+);
+
+// Delete user
+export const deleteUser = createAsyncThunk(
+  'users/deleteUser',
+  async (userId, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await userService.deleteUser(userId);
+      // Optional: Since users scale up, we re-fetch instead of manual array filter to keep pagination accurate
+      dispatch(fetchStudents()); 
+      return response;
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
+);

@@ -33,21 +33,33 @@ const ClassSchedulingModal = ({ isDark, currentTheme, classroom, onClose, onSave
       // If editing, populate form with class data
       if (classToEdit) {
         setFormData({
-          ...classToEdit,
-          // Use classroom data directly instead of offering selection
-          course: classroom?.courseDetails?._id || '',
-          department: classroom?.departmentDetails?._id || '',
-          teacher: classroom?.teacherDetails?._id || '',
-          groups: classroom?.groupDetails?._id ? [classroom.groupDetails._id] : [],
+          title: classToEdit.title || '',
+          isExtraClass: classToEdit.isExtraClass || false,
+          // Support both populated and unpopulated ID fields
+          course: classToEdit.course?._id || classToEdit.course || '',
+          department: classToEdit.department?._id || classToEdit.department || '',
+          groups: classToEdit.groups || [],
+          teacher: classToEdit.teacher?._id || classToEdit.teacher || '',
+          schedule: classToEdit.schedule || formData.schedule,
+          topics: classToEdit.topics || [],
+          notes: classToEdit.notes || '',
+          specialRequirements: classToEdit.specialRequirements || '',
+          extraClassDate: classToEdit.extraClassDate ? new Date(classToEdit.extraClassDate).toISOString().split('T')[0] : ''
         });
       } else {
         // For new class, pre-fill with classroom data
+        // Try multiple paths to find the IDs to be more robust
+        const courseId = classroom?.courseDetails?._id || classroom?.course?._id || classroom?.course || '';
+        const deptId = classroom?.departmentDetails?._id || classroom?.department?._id || classroom?.department || '';
+        const teacherId = classroom?.teacherDetails?._id || classroom?.assignedTeacher?._id || classroom?.assignedTeacher || '';
+        const groupId = classroom?.groupDetails?._id || classroom?.group?._id || classroom?.group || '';
+
         setFormData({
           ...formData,
-          course: classroom?.courseDetails?._id || '',
-          department: classroom?.departmentDetails?._id || '',
-          teacher: classroom?.teacherDetails?._id || '',
-          groups: classroom?.groupDetails?._id ? [classroom.groupDetails._id] : [],
+          course: courseId,
+          department: deptId,
+          teacher: teacherId,
+          groups: groupId ? [groupId] : [],
         });
       }
     }, [classToEdit, classroom]);
@@ -129,10 +141,20 @@ const ClassSchedulingModal = ({ isDark, currentTheme, classroom, onClose, onSave
         if (!formData.schedule.startDate) errors['schedule.startDate'] = 'Start date is required';
         if (!formData.schedule.endDate) errors['schedule.endDate'] = 'End date is required';
         if (formData.schedule.daysOfWeek.length === 0) errors.daysOfWeek = 'Select at least one day';
+        
+        // Validate that endDate is not before startDate
+        if (formData.schedule.startDate && formData.schedule.endDate && formData.schedule.startDate > formData.schedule.endDate) {
+          errors['schedule.endDate'] = 'End date must be after start date';
+        }
       }
       
       if (!formData.schedule.startTime) errors['schedule.startTime'] = 'Start time is required';
       if (!formData.schedule.endTime) errors['schedule.endTime'] = 'End time is required';
+      
+      // Validate that endTime is after startTime
+      if (formData.schedule.startTime && formData.schedule.endTime && formData.schedule.endTime <= formData.schedule.startTime) {
+        errors['schedule.endTime'] = 'End time must be after start time';
+      }
       
       setFormErrors(errors);
       return Object.keys(errors).length === 0;
@@ -145,13 +167,17 @@ const ClassSchedulingModal = ({ isDark, currentTheme, classroom, onClose, onSave
       
       setLoading(true);
       try {
-        // Mock successful response
-        await new Promise(resolve => setTimeout(resolve, 800));
+        const payload = { ...formData };
         
-        onSave({
-          ...formData,
-          _id: classToEdit?._id || Date.now().toString()
-        });
+        // Detailed logging for debugging
+        console.log('--- Submitting Class Payload ---', payload);
+
+        // Only include _id when editing an existing class
+        if (classToEdit?._id) {
+          payload._id = classToEdit._id;
+        }
+        
+        await onSave(payload);
         
         setLoading(false);
       } catch (error) {

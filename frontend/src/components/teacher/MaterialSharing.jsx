@@ -234,7 +234,7 @@ const MaterialsSharing = ({ isDark, currentTheme, classroom }) => {
         <div>
           <div className="flex justify-between items-center mb-4">
             <h3 className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>
-              Class Materials
+              Class Notes & Files
             </h3>
             <button
               onClick={() => setUploadModalOpen(true)}
@@ -245,7 +245,7 @@ const MaterialsSharing = ({ isDark, currentTheme, classroom }) => {
               } px-4 py-2 rounded-lg flex items-center shadow-sm transition-colors text-sm`}
             >
               <PlusCircle size={16} className="mr-2" />
-              Upload Material
+              Upload Note
             </button>
           </div>
 
@@ -317,7 +317,7 @@ const MaterialsSharing = ({ isDark, currentTheme, classroom }) => {
 >
   {materials
     .filter(material => {
-      return material.classroomId === classroom?.id || material?.files;
+      return material && (material.classroomId === classroom?.id || material?.files);
     })
     .map((material) => (
       <tr key={material._id}>
@@ -441,7 +441,7 @@ const MaterialsSharing = ({ isDark, currentTheme, classroom }) => {
                     isDark ? 'text-[#506EE5]' : 'text-indigo-600'
                   } hover:underline`}
                 >
-                  Upload your first material
+                  Upload your first file
                 </button>
               </div>
             )}

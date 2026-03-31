@@ -7,6 +7,7 @@ import ThemeProvider from './context/ThemeProvider.jsx'
 import { BrowserRouter } from 'react-router-dom'
 import store from './app/store.js'
 import { Provider } from 'react-redux'
+import { SocketProvider } from './context/SocketContext.jsx'
 // import AuthSetup from './utils/AuthSetup.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -16,7 +17,9 @@ createRoot(document.getElementById('root')).render(
         {/* <AuthProvider> */}
           <Provider store={store}>
             {/* <AuthSetup/> */}
+            <SocketProvider>
               <App />
+            </SocketProvider>
           </Provider>
         {/* </AuthProvider> */}
       </ThemeProvider>

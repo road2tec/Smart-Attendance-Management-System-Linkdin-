@@ -135,8 +135,8 @@ export default function ClassAttendanceController({ classItem }) {
       
       // Refresh data after successful operations
       if (classItem?._id) {
-        // dispatch(getAttendanceWindowStatus(classItem._id));
-        // dispatch(getClassAttendance(classItem._id));
+        dispatch(getAttendanceWindowStatus(classItem._id));
+        dispatch(getClassAttendance(classItem._id));
       }
       
       // Reset selection after bulk action

@@ -1,20 +1,23 @@
 // redux/slices/userSlice.js
 import { createSlice } from '@reduxjs/toolkit';
-import { fetchUsers, fetchTeachers, fetchStudents } from './userThunks';
+import { fetchUsers, fetchTeachers, fetchStudents, fetchPendingUsers, updateUserStatus } from './userThunks';
 
 const initialState = {
   users: [],
   teachers: [],
   students: [],
+  pendingUsers: [],
   loading: {
     users: false,
     teachers: false,
-    students: false
+    students: false,
+    pending: false
   },
   error: {
     users: null,
     teachers: null,
-    students: null
+    students: null,
+    pending: null
   }
 };
 
@@ -26,7 +29,8 @@ const userSlice = createSlice({
       state.error = {
         users: null,
         teachers: null,
-        students: null
+        students: null,
+        pending: null
       };
     }
   },
@@ -71,6 +75,26 @@ const userSlice = createSlice({
     builder.addCase(fetchStudents.rejected, (state, action) => {
       state.loading.students = false;
       state.error.students = action.payload || 'Failed to fetch students';
+    });
+
+    // Handle fetchPendingUsers
+    builder.addCase(fetchPendingUsers.pending, (state) => {
+      state.loading.pending = true;
+      state.error.pending = null;
+    });
+    builder.addCase(fetchPendingUsers.fulfilled, (state, action) => {
+      state.pendingUsers = action.payload;
+      state.loading.pending = false;
+    });
+    builder.addCase(fetchPendingUsers.rejected, (state, action) => {
+      state.loading.pending = false;
+      state.error.pending = action.payload || 'Failed to fetch pending users';
+    });
+
+    // Handle updateUserStatus
+    builder.addCase(updateUserStatus.fulfilled, (state, action) => {
+      // Remove from pending list if status changed
+      state.pendingUsers = state.pendingUsers.filter(user => user._id !== action.meta.arg.userId);
     });
   }
 });

@@ -73,3 +73,13 @@ debug/
 # Misc
 .DS_Store
 Thumbs.db
+# Python
+venv/
+.venv/
+ai_module/venv/
+__pycache__/
+*.py[cod]
+*.class
+.env
+.pytest_cache/
+.mypy_cache/

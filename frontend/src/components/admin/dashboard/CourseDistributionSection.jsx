@@ -1,114 +1,92 @@
-import React, { useState } from 'react';
-import { useTheme } from '../../../context/ThemeProvider';
-import { Book, ChevronRight, Users, CheckCircle, Clock, PieChart as PieChartIcon } from 'lucide-react';
-import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import SectionHeader from './commonComponents/SectionHeader';
+import React from 'react';
+import { Book, ChevronRight, Users, CheckCircle, Clock } from 'lucide-react';
+import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
-
-// Function to generate consistent colors based on department name
 const generateColor = (text) => {
   const colors = [
-    // Blues from your theme
     '#506EE5', '#3B82F6', '#2E67FF', '#4F46E5', '#60A5FA', 
-     '#2F955A', '#34D399',
-    // Oranges from your theme
-    '#F2683C', '#F97316', '#FBBF24', '#F59E0B',
-    // Reds
-    '#E74C3C', '#ef4444',
-  
-   
+    '#2F955A', '#34D399', '#F2683C', '#F97316', '#FBBF24', '#F59E0B'
   ];
-  
-  // Simple hash function to get consistent color for same text
   const charSum = text.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return colors[charSum % colors.length];
 };
 
-
-
-const DepartmentDistributionChart = ({ coursesData }) => {
-  const { themeConfig, theme } = useTheme();
-  const colors = themeConfig[theme];
-
-  // Group courses by department
+const DepartmentDistributionChart = ({ coursesData, isDark }) => {
   const departmentGroups = coursesData.reduce((acc, course) => {
-    const dept = course.department || 'Uncategorized';
+    const dept = course.department?.name || 'GEN-ED';
     if (!acc[dept]) {
       acc[dept] = {
         name: dept,
         count: 0,
-        color: course.color || '#cccccc'
+        color: generateColor(dept)
       };
     }
     acc[dept].count += 1;
     return acc;
   }, {});
 
-  // Convert to array for chart
   const chartData = Object.values(departmentGroups);
-
-  // Ensure we have valid data
-  const validChartData = chartData.length > 0 ? chartData : [
-    { name: 'No Data', count: 1, color: '#cccccc' }
-  ];
+  const validChartData = chartData.length > 0 ? chartData : [{ name: 'Synchronizing', count: 1, color: '#2E67FF' }];
 
   return (
-    <div className={`${colors.card} p-6 rounded-xl h-full`}>
-      <h3 className={`${colors.text} text-lg font-semibold mb-4`}>Department Distribution</h3>
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between mb-8">
+         <h3 className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Syllabus Density</h3>
+         <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isDark ? 'bg-brand-primary/10 text-brand-primary' : 'bg-indigo-50 text-indigo-600'}`}>
+            Regional Mapping
+         </div>
+      </div>
       
-      <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
-          <Pie
-            data={validChartData}
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={100}
-            paddingAngle={5}
-            dataKey="count"
-            nameKey="name"
-            label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
-            labelLine={false}
-          >
-            {validChartData.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={entry.color} 
-                stroke={theme === 'dark' ? '#1E2733' : '#fff'} 
-                strokeWidth={2}
-              />
-            ))}
-          </Pie>
-          <Tooltip 
-            formatter={(value) => [`${value} courses`, 'Count']}
-            contentStyle={{ 
-              backgroundColor: theme === 'dark' ? '#121A22' : '#fff',
-              borderColor: theme === 'dark' ? '#1E2733' : '#ddd',
-              color: theme === 'dark' ? '#fff' : '#333'
-            }}
-          />
-          <Legend 
-            layout="vertical"
-            align="right"
-            verticalAlign="middle"
-            formatter={(value) => (
-              <span className={colors.text}>{value}</span>
-            )}
-          />
-        </PieChart>
-      </ResponsiveContainer>
+      <div className="flex-1 min-h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={validChartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={70}
+              outerRadius={100}
+              paddingAngle={8}
+              dataKey="count"
+              nameKey="name"
+              stroke="none"
+            >
+              {validChartData.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={entry.color} 
+                  className="hover:opacity-80 transition-opacity duration-300 cursor-pointer"
+                />
+              ))}
+            </Pie>
+            <Tooltip 
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  return (
+                    <div className={`p-4 rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark ? 'bg-[#0A0E13]/90 border-[#1E2733]' : 'bg-white/90 border-gray-100'}`}>
+                      <p className={`text-xs font-black uppercase tracking-widest mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{payload[0].name}</p>
+                      <p className="text-[10px] font-bold text-brand-primary uppercase">{payload[0].value} Courses Assigned</p>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
       
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        {validChartData.map((dept, index) => (
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {validChartData.slice(0, 4).map((dept, index) => (
           <div 
             key={index} 
-            className={`${theme === 'dark' ? 'bg-[#1E2733]/30' : 'bg-gray-50'} p-3 rounded-lg flex items-center gap-2`}
+            className={`p-4 rounded-2xl border flex items-center gap-4 ${isDark ? 'bg-[#1E2733]/30 border-[#1E2733]' : 'bg-gray-50/50 border-gray-100'}`}
           >
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: dept.color }}></div>
+            <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.1)]" style={{ backgroundColor: dept.color }}></div>
             <div>
-              <h5 className={`${colors.text} text-sm font-medium`}>{dept.name}</h5>
-              <span className={`${colors.secondaryText} text-xs`}>{dept.count} courses</span>
+              <h5 className={`text-xs font-black tracking-tight ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{dept.name}</h5>
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{dept.count} Modules</span>
             </div>
           </div>
         ))}
@@ -117,233 +95,100 @@ const DepartmentDistributionChart = ({ coursesData }) => {
   );
 };
 
-// export default DepartmentDistributionChart;
-
-export default function CourseDistributionSection({ coursesData }) {
-  const { themeConfig, theme } = useTheme();
-  const colors = themeConfig[theme];
+export default function CourseDistributionSection({ coursesData, isDark }) {
   const navigate = useNavigate();
   
-  // Process the courses data for chart display
   const processedCourseData = (coursesData || []).map(course => ({
     id: course._id,
     name: course.courseName,
     code: course.courseCode,
     students: Array.isArray(course.enrolledStudents) ? course.enrolledStudents.length : 0,
-    maxCapacity: course.maxCapacity || 0,
-    department: course.department?.name || 'Unknown Department',
-    departmentCode: course.department?.code || 'N/A',
-    coordinator: course.courseCoordinator || 'Not Assigned',
-    academicYear: course.academicYear,
-    semester: course.semester,
-    description: course.courseDescription,
-    credits: course.credits,
+    maxCapacity: course.maxCapacity || 1,
+    department: course.department?.name || 'GEN-ED',
     isActive: course.isActive,
     color: generateColor(course.department?.name || course.courseName || '')
   }));
   
-  // Get available courses (active courses with available capacity)
-  const availableCourses = processedCourseData.filter(
-    course => course.isActive && course.students < course.maxCapacity
-  );
-  
-  // Limit to 8 courses for display
-  const displayCourses = processedCourseData.slice(0, 8);
-  
-  // Calculate total enrolled students
+  const availableCourses = processedCourseData.filter(course => course.isActive && course.students < course.maxCapacity);
   const totalEnrolledStudents = processedCourseData.reduce((total, course) => total + course.students, 0);
-  
-  // Generate department-based data for pie chart
-  const departmentData = processedCourseData.reduce((acc, course) => {
-    const deptName = course.department;
-    const existingDept = acc.find(item => item.name === deptName);
-    
-    if (existingDept) {
-      existingDept.count += 1;
-      existingDept.students += course.students;
-    } else {
-      acc.push({
-        name: deptName,
-        count: 1,
-        students: course.students,
-        color: course.color
-      });
-    }
-    
-    return acc;
-  }, []);
-  
-  const handleNavigateToCourseInfo = () => {
-    navigate('/admin/manageCourses');
-  };
-
-  // Ensure we have valid data for the chart
-  const validChartData = departmentData.length > 0 ? departmentData : [
-    { name: 'No Data', students: 1, color: '#cccccc' }
-  ];
 
   return (
-    <div className={`${theme === 'dark' ? 'bg-[#121A22]/40' : 'bg-white'} rounded-xl p-6 mb-10 border ${theme === 'dark' ? 'border-[#1E2733]' : 'border-gray-200'}`}>
-      <SectionHeader 
-        title="Course Overview" 
-        subtitle="Summary and distribution of all courses"
-      />
-      
-      {/* Key Statistics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className={`${colors.card} p-4 rounded-xl flex items-center justify-between`}>
-          <div className="flex items-center gap-3">
-            <div className={`rounded-full p-2 ${theme === 'dark' ? 'bg-[#1E2733]/50' : 'bg-gray-100'}`}>
-              <Book size={20} className={colors.icon} />
-            </div>
-            <div>
-              <h3 className={`${colors.secondaryText} text-sm`}>Total Courses</h3>
-              <h2 className={`${colors.text} text-2xl font-bold`}>{processedCourseData.length}</h2>
-            </div>
-          </div>
+    <div className="space-y-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+          <h2 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Academic Architecture</h2>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Institutional syllabus and capacity management</p>
         </div>
-        
-        <div className={`${colors.card} p-4 rounded-xl flex items-center justify-between`}>
-          <div className="flex items-center gap-3">
-            <div className={`rounded-full p-2 ${theme === 'dark' ? 'bg-[#1E2733]/50' : 'bg-gray-100'}`}>
-              <Users size={20} className={colors.icon} />
-            </div>
-            <div>
-              <h3 className={`${colors.secondaryText} text-sm`}>Total Students</h3>
-              <h2 className={`${colors.text} text-2xl font-bold`}>{totalEnrolledStudents}</h2>
-            </div>
-          </div>
-        </div>
-        
-        <div className={`${colors.card} p-4 rounded-xl flex items-center justify-between`}>
-          <div className="flex items-center gap-3">
-            <div className={`rounded-full p-2 ${theme === 'dark' ? 'bg-[#1E2733]/50' : 'bg-gray-100'}`}>
-              <CheckCircle size={20} className={colors.icon} />
-            </div>
-            <div>
-              <h3 className={`${colors.secondaryText} text-sm`}>Available Courses</h3>
-              <h2 className={`${colors.text} text-2xl font-bold`}>{availableCourses.length}</h2>
-            </div>
-          </div>
-        </div>
+        <button 
+          onClick={() => navigate('/admin/manageCourses')} 
+          className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:scale-105 active:scale-95 ${
+            isDark ? 'bg-brand-primary text-white shadow-xl shadow-brand-primary/20' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+          }`}
+        >
+          Manage Curriculum
+          <ChevronRight size={16} strokeWidth={3} />
+        </button>
       </div>
       
-      {/* Available Courses Tile */}
-      <div className={`${colors.card} p-4 rounded-xl mb-6`}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Clock size={18} className={colors.icon} />
-            <h3 className={`${colors.text} font-semibold`}>Available Courses</h3>
-          </div>
-          <span className={`${colors.secondaryText} text-sm`}>{availableCourses.length} courses with open enrollment</span>
-        </div>
-        
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${availableCourses.length === 0 ? 'items-center justify-center' : ''}`}>
-          {availableCourses.length > 0 ? (
-            availableCourses.slice(0, 3).map((course, index) => (
-              <div key={index} className={`${theme === 'dark' ? 'bg-[#1E2733]/30' : 'bg-gray-50'} p-3 rounded-lg border ${theme === 'dark' ? 'border-[#1E2733]' : 'border-gray-200'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: course.color }}></div>
-                  <h4 className={`${colors.text} font-medium text-sm`}>{course.name}</h4>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className={`${colors.secondaryText} text-xs`}>{course.departmentCode} | {course.code}</span>
-                  <span className={`${theme === 'dark' ? 'bg-[#121A22]/70' : 'bg-white'} px-2 py-1 rounded text-xs ${colors.text}`}>
-                    {course.students}/{course.maxCapacity} students
-                  </span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-3 text-center py-6">
-              <span className={`${colors.secondaryText}`}>No available courses at the moment</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { label: 'Curriculum Index', value: processedCourseData.length, icon: Book, color: 'text-brand-primary' },
+          { label: 'Global Enrollment', value: totalEnrolledStudents, icon: Users, color: 'text-emerald-400' },
+          { label: 'Open Pathways', value: availableCourses.length, icon: CheckCircle, color: 'text-amber-400' }
+        ].map((stat, idx) => (
+          <div key={idx} className={`p-6 rounded-[2rem] border flex items-center gap-6 ${isDark ? 'bg-[#1E2733]/30 border-[#1E2733]' : 'bg-gray-50/50 border-gray-100'}`}>
+            <div className={`p-4 rounded-2xl ${isDark ? 'bg-gray-800/50' : 'bg-white shadow-sm'} ${stat.color}`}>
+              <stat.icon size={24} />
             </div>
-          )}
-        </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{stat.label}</p>
+              <h2 className={`text-3xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{stat.value}</h2>
+            </div>
+          </div>
+        ))}
       </div>
       
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Course List (Limited to 8) */}
-        <div className="w-full lg:w-1/2">
-          <div className={`${colors.card} p-4 rounded-xl`}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Book size={18} className={colors.icon} />
-                <h3 className={`${colors.text} font-semibold`}>Course Overview</h3>
-              </div>
-              <span className={`${colors.secondaryText} text-sm`}>Showing {displayCourses.length} of {processedCourseData.length}</span>
-            </div>
-            
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {displayCourses.map((course, index) => (
-                <div 
-                  key={index} 
-                  className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-[#1E2733]/30' : 'bg-gray-50'} border ${theme === 'dark' ? 'border-[#1E2733]' : 'border-gray-200'}`}
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: course.color }}></div>
-                      <h4 className={`${colors.text} font-medium`}>{course.name}</h4>
-                    </div>
-                    <span className={`${course.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded-full`}>
-                      {course.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className={`${colors.secondaryText} text-xs`}>Code:</span>
-                      <span className={`${colors.text} ml-1`}>{course.code}</span>
-                    </div>
-                    <div>
-                      <span className={`${colors.secondaryText} text-xs`}>Dept:</span>
-                      <span className={`${colors.text} ml-1`}>{course.departmentCode}</span>
-                    </div>
-                    <div>
-                      <span className={`${colors.secondaryText} text-xs`}>Students:</span>
-                      <span className={`${colors.text} ml-1`}>{course.students}/{course.maxCapacity}</span>
-                    </div>
-                    <div>
-                      <span className={`${colors.secondaryText} text-xs`}>Credits:</span>
-                      <span className={`${colors.text} ml-1`}>{course.credits}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Fixed the progress bars */}
-                  <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                    <div 
-                      className="bg-blue-600 h-1.5 rounded-full" 
-                      style={{ 
-                        width: `${Math.min((course.students / Math.max(course.maxCapacity, 1)) * 100, 100)}%`,
-                        minWidth: course.students > 0 ? '5%' : '0%'
-                      }}
-                    ></div>
-                  </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <div className={`p-8 rounded-[2.5rem] border ${isDark ? 'bg-[#1E2733]/20 border-[#1E2733]' : 'bg-gray-50/30 border-gray-100'}`}>
+           <div className="flex items-center justify-between mb-8">
+              <h3 className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Priority Modules</h3>
+              <Clock size={18} className="text-gray-500" />
+           </div>
+           
+           <div className="space-y-4">
+              {processedCourseData.slice(0, 4).map((course, index) => (
+                <div key={index} className={`p-5 rounded-2xl border transition-all hover:translate-x-1 ${isDark ? 'bg-[#121A22] border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'}`}>
+                   <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: course.color }}></div>
+                         <h4 className={`text-sm font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{course.name}</h4>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${course.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                         {course.isActive ? 'Active' : 'Draft'}
+                      </span>
+                   </div>
+                   <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">
+                      <span>{course.code} • {course.department}</span>
+                      <span>{course.students}/{course.maxCapacity} Seats Filled</span>
+                   </div>
+                   <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                      <div 
+                        className="h-full bg-brand-primary rounded-full" 
+                        style={{ width: `${(course.students / course.maxCapacity) * 100}%` }}
+                      ></div>
+                   </div>
                 </div>
               ))}
-            </div>
-          </div>
+           </div>
         </div>
         
-        {/* Charts Section - Fixed */}
-        <div className="w-full lg:w-1/2">
-          <DepartmentDistributionChart coursesData={processedCourseData} />
+        <div className={`p-8 rounded-[2.5rem] border ${isDark ? 'bg-[#1E2733]/20 border-[#1E2733]' : 'bg-gray-50/30 border-gray-100'}`}>
+          <DepartmentDistributionChart coursesData={processedCourseData} isDark={isDark} />
         </div>
-      </div>
-      
-      <div className="flex justify-end mt-6">
-        <button 
-          onClick={handleNavigateToCourseInfo} 
-          className={`flex items-center gap-2 ${colors.button.primary} py-2 px-4 rounded-lg text-sm font-medium`}
-        >
-          Manage All Courses
-          <ChevronRight size={16} />
-        </button>
       </div>
     </div>
   );
 }
-
 // import React, { useState } from 'react';
 // import { useTheme } from '../../../context/ThemeProvider';
 // import { Book, ChevronRight, Users, Award, Building } from 'lucide-react';

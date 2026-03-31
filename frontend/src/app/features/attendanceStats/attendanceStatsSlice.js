@@ -1,13 +1,15 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { getMyAttendance, getStudentAttendance, getClassAttendance, getClassroomAttendance, getTeacherAttendance, getOverallAttendance, getDailyAttendanceReport, getMonthlyAttendanceReport } from './attendanceStatsThunks';
+import { getMyAttendance, getStudentAttendance, getClassAttendance, getClassroomAttendance, getTeacherAttendance, getOverallAttendance, getDailyAttendanceReport, getMonthlyAttendanceReport, getStudentTrends, getDefaultersList } from './attendanceStatsThunks';
 
 // Initial state
 const initialState = {
   studentAttendance: null,
+  studentTrends: null,
   classAttendance: null,
   classroomAttendance: null,
   teacherAttendance: null,
   overallAttendance: null,
+  defaultersList: null,
   dailyReport: null,
   monthlyReport: null,
   isLoading: false,
@@ -64,6 +66,14 @@ const attendanceStatsSlice = createSlice({
       })
       .addCase(getMyAttendance.rejected, failRequest)
       
+      // getStudentTrends
+      .addCase(getStudentTrends.pending, beginRequest)
+      .addCase(getStudentTrends.fulfilled, (state, action) => {
+        completeRequest(state);
+        state.studentTrends = action.payload.data;
+      })
+      .addCase(getStudentTrends.rejected, failRequest)
+
       // getStudentAttendance
       .addCase(getStudentAttendance.pending, beginRequest)
       .addCase(getStudentAttendance.fulfilled, (state, action) => {
@@ -103,6 +113,14 @@ const attendanceStatsSlice = createSlice({
         state.overallAttendance = action.payload.data;
       })
       .addCase(getOverallAttendance.rejected, failRequest)
+
+      // getDefaultersList
+      .addCase(getDefaultersList.pending, beginRequest)
+      .addCase(getDefaultersList.fulfilled, (state, action) => {
+        completeRequest(state);
+        state.defaultersList = action.payload.data;
+      })
+      .addCase(getDefaultersList.rejected, failRequest)
       
       // getDailyAttendanceReport
       .addCase(getDailyAttendanceReport.pending, beginRequest)

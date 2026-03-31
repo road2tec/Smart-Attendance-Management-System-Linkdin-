@@ -1,23 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { useTheme } from '../../../context/ThemeProvider';
-import { Users, ChevronRight } from 'lucide-react';
-import StatCard from './commonComponents/StatCard';
-import SectionHeader from './commonComponents/SectionHeader';
+import { Users, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { shallowEqual } from 'react-redux';
 
-export default function StudentEnrollmentSection() {
-  const { themeConfig, theme } = useTheme();
-  const colors = themeConfig[theme];
-  const navigate = useNavigate();
-  
-  // For section stat cards animation on hover
-  const [hoveredCard, setHoveredCard] = useState(null);
-  
-  // Read data from Redux store — DashboardOverview already fetches this
-  const { departments, isLoading: departmentsLoading } = useSelector(state => state.departments);
+const MiniStatCard = ({ title, value, subtext, trend, icon: Icon, color, isDark }) => (
+  <div className={`p-6 rounded-[2rem] border transition-all duration-500 hover:scale-[1.02] ${
+    isDark ? 'bg-[#1E2733]/30 border-[#1E2733]' : 'bg-white border-gray-100 shadow-sm'
+  }`}>
+    <div className="flex justify-between items-start mb-4">
+       <div className={`p-3 rounded-2xl ${isDark ? 'bg-gray-800/50' : 'bg-white shadow-sm'}`} style={{ color }}>
+          <Icon size={20} />
+       </div>
+       {trend && (
+         <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black ${
+           parseFloat(trend) >= 0 
+             ? (isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
+             : (isDark ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-600')
+         }`}>
+           {parseFloat(trend) >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+           {Math.abs(parseFloat(trend))}%
+         </div>
+       )}
+    </div>
+    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{title}</p>
+    <div className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{value}</div>
+    <p className="text-[10px] font-medium text-gray-500 mt-2 italic">{subtext}</p>
+  </div>
+);
 
+export default function StudentEnrollmentSection({ isDark }) {
+  const navigate = useNavigate();
+  const { departments, isLoading: departmentsLoading } = useSelector(state => state.departments);
   const { students, loading: studentsLoading } = useSelector(
     state => ({
       students: state.users.students,
@@ -26,38 +40,31 @@ export default function StudentEnrollmentSection() {
     shallowEqual
   );
 
-  // State for processed department data
   const [departmentStats, setDepartmentStats] = useState([]);
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalNewStudents, setTotalNewStudents] = useState(0);
   const [overallGrowth, setOverallGrowth] = useState(0);
 
-  // Process students by department
   useEffect(() => {
     if (departments.length > 0 && students.length > 0) {
-      // For calculating new students this month
       const now = new Date();
       const thisMonth = now.getMonth();
       const thisYear = now.getFullYear();
       
       const departmentData = departments.map((dept, index) => {
-        // Students in this department
         const deptStudents = students.filter(student => 
-          student.department && student.department === dept._id
+          student.department && (student.department === dept._id || student.department?._id === dept._id)
         );
         
-        // New students this month in this department
         const newDeptStudents = deptStudents.filter(student => {
           const createdAt = new Date(student.createdAt);
           return createdAt.getMonth() === thisMonth && createdAt.getFullYear() === thisYear;
         });
         
-        // Calculate growth percentage
         const growth = deptStudents.length > 0 
           ? (newDeptStudents.length / deptStudents.length) * 100 
           : 0;
         
-        // Generate a color based on index
         const colorPalette = ['#2E67FF', '#2F955A', '#F2683C', '#506EE5', '#8884d8', '#82ca9d', '#ffc658'];
         const color = colorPalette[index % colorPalette.length];
         
@@ -71,10 +78,7 @@ export default function StudentEnrollmentSection() {
         };
       });
       
-      // Sort by number of students (descending)
       departmentData.sort((a, b) => b.students - a.students);
-      
-      // Calculate totals
       const total = departmentData.reduce((sum, dept) => sum + dept.students, 0);
       const newTotal = departmentData.reduce((sum, dept) => sum + dept.newStudents, 0);
       const avgGrowth = total > 0 ? (newTotal / total) * 100 : 0;
@@ -86,84 +90,67 @@ export default function StudentEnrollmentSection() {
     }
   }, [departments, students]);
 
-  const handleNavigateToStudentPage = () => {
-    navigate('/admin/enrolledUsers');
-  };
-
   if (departmentsLoading || studentsLoading) {
     return (
-      <div className="mb-10">
-        <SectionHeader 
-          title="Student Enrollment" 
-          subtitle="Loading department data..."
-        />
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!departmentsLoading && !studentsLoading && departments.length === 0 && students.length === 0) {
-    return (
-      <div className="mb-10">
-        <SectionHeader 
-          title="Student Enrollment" 
-          subtitle="No department or student data available yet"
-        />
-        <div className={`${theme === 'dark' ? 'bg-[#1E2733]/30' : 'bg-white'} p-6 rounded-xl border ${theme === 'dark' ? 'border-[#1E2733]' : 'border-gray-200'}`}>
-          <p className={colors.secondaryText}>No students or departments found. Add departments and register students to populate this section.</p>
-        </div>
+      <div className="py-12 flex flex-col items-center justify-center gap-4">
+         <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
+         <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Retrieving Enrollment Matrix...</p>
       </div>
     );
   }
 
   return (
-    <div className="mb-10">
-      <SectionHeader 
-        title="Student Enrollment" 
-        subtitle="Overview of students enrolled across different departments"
-      />
+    <div className={`p-8 sm:p-10 rounded-[3rem] border backdrop-blur-md ${
+      isDark ? 'bg-[#121A22]/50 border-[#1E2733]' : 'bg-white/80 border-gray-100 shadow-sm'
+    }`}>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+        <div>
+          <h2 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Cohort Distribution</h2>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Cross-departmental enrollment analytics</p>
+        </div>
+        <button 
+          onClick={() => navigate('/admin/enrolledUsers')} 
+          className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:scale-105 active:scale-95 ${
+            isDark ? 'bg-brand-primary text-white shadow-xl shadow-brand-primary/20' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+          }`}
+        >
+          Manage Personnel
+          <ChevronRight size={16} strokeWidth={3} />
+        </button>
+      </div>
       
-      <div className="grid grid-cols-1  md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 m-auto w-full">
-        {/* Total Students Card */}
-        <StatCard 
-          id="total-students"
-          title="Total Students"
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MiniStatCard 
+          title="Total Institutional Cohort"
           value={totalStudents}
-          icon={<Users size={24} className={colors.icon} />}
-          subtext={`${totalNewStudents} new this month`}
-          trend={parseFloat(overallGrowth)}
-          hoveredCard={hoveredCard}
-          setHoveredCard={setHoveredCard}
+          subtext={`${totalNewStudents} fresh enrollments this period`}
+          trend={overallGrowth}
+          icon={Users}
+          color="#2E67FF"
+          isDark={isDark}
         />
         
-        {/* Department-wise Student Distribution */}
-
-        {departmentStats.map((dept, index) => (
-          <StatCard
+        {departmentStats.slice(0, 3).map((dept) => (
+          <MiniStatCard
             key={dept.id}
-            id={`dept-${dept.id}`}
-            title={dept.name}
+            title={`${dept.name} Division`}
             value={dept.students}
-            icon={<Users size={24} style={{ color: dept.color }} />}
-            subtext={dept.newStudents > 0 ? `${dept.newStudents} new` : "No new students"}
-            trend={parseFloat(dept.growth)}
-            hoveredCard={hoveredCard}
-            setHoveredCard={setHoveredCard}
+            subtext={dept.newStudents > 0 ? `${dept.newStudents} new entrants` : "Stability maintained"}
+            trend={dept.growth}
+            icon={Users}
+            color={dept.color}
+            isDark={isDark}
           />
         ))}
       </div>
       
-      <div className="flex justify-end">
-        <button 
-          onClick={handleNavigateToStudentPage} 
-          className={`flex items-center gap-2 ${colors.button.primary} py-2 px-4 rounded-lg text-sm font-medium`}
-        >
-          View Student Details
-          <ChevronRight size={16} />
-        </button>
-      </div>
+      {departmentStats.length > 3 && (
+        <div className="mt-8 pt-8 border-t border-dashed border-gray-800/30">
+           <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">
+             + {departmentStats.length - 3} Additional Academic Divisions Synchronized
+           </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,17 @@
 #root {
-  margin: 0 ;
-  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Global Transition for smooth Theme Switching */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+/* Hide focus rings on mouse, show on keyboard */
+*:focus:not(:focus-visible) {
+  outline: none;
 }
